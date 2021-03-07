@@ -1,0 +1,9 @@
+#!/bin/bash
+
+
+source /home/steven/Documents/GITHUB/temp/COMET/comet/bin/activate
+DATA=/home/steven/Documents/GITHUB/temp/fairseq-0.9.0/data-bin
+
+fairseq-generate $DATA/wmt14.en-fr.newstest2014  \
+    --path $DATA/wmt14.en-fr.fconv-py/model.pt \
+    --beam 5 --batch-size 128 --remove-bpe | tee $DATA/gen.out
