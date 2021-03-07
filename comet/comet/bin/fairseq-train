@@ -1,0 +1,12 @@
+#!/home/steven/Documents/GITHUB/temp/COMET/comet/bin/python3
+# EASY-INSTALL-ENTRY-SCRIPT: 'fairseq','console_scripts','fairseq-train'
+__requires__ = 'fairseq'
+import re
+import sys
+from pkg_resources import load_entry_point
+
+if __name__ == '__main__':
+    sys.argv[0] = re.sub(r'(-script\.pyw?|\.exe)?$', '', sys.argv[0])
+    sys.exit(
+        load_entry_point('fairseq', 'console_scripts', 'fairseq-train')()
+    )
