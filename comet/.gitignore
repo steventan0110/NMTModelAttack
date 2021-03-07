@@ -4,7 +4,7 @@
 experiments/
 data/
 wmt-shared-task/wmt2020/
-bin/
+../COMET/bin/
 
 .vscode
 # Byte-compiled / optimized / DLL files
