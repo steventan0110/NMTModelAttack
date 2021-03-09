@@ -1,0 +1,33 @@
+#!/bin/bash
+source /home/steven/Documents/GITHUB/NMTModelAttack/ma/bin/activate
+
+ROOT=/home/steven/Documents/GITHUB/NMTModelAttack
+DATA=$ROOT/dataset
+Pretrain_Model=/home/steven/Documents/GITHUB/NMTModelAttack/pretrain_models/xlmr.base
+SRC=zh
+TRT=en
+# use xlmr trained sentencepiece model
+MODEL=$Pretrain_Model/sentencepiece.bpe.model
+
+#python spm_train.py \
+#  --input=$DATA/wmt17_without_un.$SRC,$DATA/mt17_without_un.$TRT \
+#  --model_prefix=$DATA/sentencepiece
+
+python spm_encode.py \
+  --model $MODEL \
+  --output_format=piece \
+  --input $DATA/wmt17_without_un.$SRC $DATA/wmt17_without_un.$TRT \
+  --outputs $DATA/train.bpe.$SRC $DATA/train.bpe.$TRT \
+  --min-len 1 --max-len 1020
+
+python spm_encode.py \
+  --model $MODEL \
+  --output_format=piece \
+  --input $DATA/newstest2017.$SRC $DATA/newstest2017.$TRT \
+  --outputs $DATA/dev.bpe.$SRC $DATA/dev.bpe.$TRT \
+
+python spm_encode.py \
+  --model $MODEL \
+  --output_format=piece \
+  --input $DATA/newstest2020.$SRC $DATA/newstest2020.$TRT \
+  --outputs $DATA/test.bpe.$SRC $DATA/test.bpe.$TRT \

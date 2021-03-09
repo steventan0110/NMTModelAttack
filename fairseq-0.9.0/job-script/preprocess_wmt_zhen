@@ -1,0 +1,16 @@
+#!/bin/bash
+
+source /home/steven/Documents/GITHUB/NMTModelAttack/ma/bin/activate
+ROOT=/home/steven/Documents/GITHUB/NMTModelAttack
+DATA=$ROOT/dataset
+Pretrain_Model=/home/steven/Documents/GITHUB/NMTModelAttack/pretrain_models/xlmr.base
+
+fairseq-preprocess \
+    --source-lang zh --target-lang en \
+    --joined-dictionary \
+    --srcdict $Pretrain_Model/xlmr_vocab.txt \
+      --trainpref $DATA/wmt17_without_un \
+      --validpref $DATA/newstest2017 \
+      --testpref $DATA/newstest2020 \
+      --destdir $ROOT/data-bin \
+    --workers 8

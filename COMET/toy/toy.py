@@ -4,6 +4,7 @@ from comet.models import download_model, load_checkpoint
 # estimator model checkpoint location:
 route = "/home/steven/.cache/torch/unbabel_comet/wmt-large-da-estimator-1719/_ckpt_epoch_1.ckpt"
 model = load_checkpoint(route)
+print(model)
 # print(model)
 
 # prepare model 
