@@ -30,4 +30,4 @@ python spm_encode.py \
   --model $MODEL \
   --output_format=piece \
   --input $DATA/newstest2020.$SRC $DATA/newstest2020.$TRT \
-  --outputs $DATA/test.bpe.$SRC $DATA/test.bpe.$TRT \
+  --outputs $DATA/test.bpe.$SRC $DATA/test.bpe.$TRT

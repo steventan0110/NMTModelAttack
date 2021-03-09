@@ -9,8 +9,8 @@ fairseq-preprocess \
     --source-lang zh --target-lang en \
     --joined-dictionary \
     --srcdict $Pretrain_Model/xlmr_vocab.txt \
-      --trainpref $DATA/wmt17_without_un \
-      --validpref $DATA/newstest2017 \
-      --testpref $DATA/newstest2020 \
+      --trainpref $DATA/train.bpe \
+      --validpref $DATA/dev.bpe \
+      --testpref $DATA/test.bpe \
       --destdir $ROOT/data-bin \
     --workers 8
