@@ -215,31 +215,27 @@ class Estimator(ModelBase):
 
         hypothesis = samples['mt']
         hypothesis_length = ref_length.detach()
-        print(hypothesis_length.shape)
+
+        hy_len = len(list(hypothesis.size()))
         # case1: mt is the source's embedding -> adversarial examples generated
-        if int(hypothesis.size(2)) == 1024:
+        if hy_len > 2:
             # hypo -> bz X trg_len X embd_dim
             #TODO: should I use avg pooling ofencoder output to represent sent-embedding?
             mt_sentemb = hypothesis[:, 0, :]
-            print(mt_sentemb.shape)
-            print(ref_sentemb.shape)
-            print(src_sentemb.shape)
-
-            diff_ref = torch.abs(mt_sentemb - ref_sentemb)
-            diff_src = torch.abs(mt_sentemb - src_sentemb)
-
-            prod_ref = mt_sentemb * ref_sentemb
-            prod_src = mt_sentemb * src_sentemb
         # case2: mt is softmax output (for prediction)
         else:
             mt_sentemb = self.get_sentence_embedding(hypothesis, hypothesis_length)
-            raise Exception()
+
+        diff_ref = torch.abs(mt_sentemb - ref_sentemb)
+        diff_src = torch.abs(mt_sentemb - src_sentemb)
+
+        prod_ref = mt_sentemb * ref_sentemb
+        prod_src = mt_sentemb * src_sentemb
         with torch.no_grad():
             embedded_sequences = torch.cat(
                 (mt_sentemb, ref_sentemb, prod_ref, diff_ref, prod_src, diff_src), dim=1
             )
             score = self.ff(embedded_sequences)
-
         return score
 
     def predict(

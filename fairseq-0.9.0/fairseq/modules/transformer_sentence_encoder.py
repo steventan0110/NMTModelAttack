@@ -186,21 +186,15 @@ class TransformerSentenceEncoder(nn.Module):
         padding_mask = tokens.eq(self.padding_idx)
         if not self.traceable and not padding_mask.any():
             padding_mask = None
-        print("prediction token dimension: ", tokens.shape)
-        token_shape = list(tokens.shape)
-        if len(token_shape) > 2:
-            # not normal tokens, token input is actually my gumbel-softmax prediction
-            x = tokens @ self.embed_tokens.weight
-            print(x.shape)
+        # print("prediction token dimension: ", tokens.shape)
 
-        else:
-            x = self.embed_tokens(tokens)
+        # print(type(tokens), tokens.shape)
+        x = self.embed_tokens(tokens)
 
         if self.embed_scale is not None:
             x *= self.embed_scale
 
-        if self.embed_positions is not None:
-            x += self.embed_positions(tokens, positions=positions)
+        x += self.embed_positions(tokens, positions=positions)
 
         if self.segment_embeddings is not None and segment_labels is not None:
             x += self.segment_embeddings(segment_labels)

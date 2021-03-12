@@ -4,6 +4,7 @@ from fairseq import utils
 from COMET.comet.models import download_model, load_checkpoint
 from . import FairseqCriterion, register_criterion
 import torch.nn.functional as F
+import torch
 
 @register_criterion('comet_score')
 class CometCriterion(FairseqCriterion):
@@ -35,12 +36,18 @@ class CometCriterion(FairseqCriterion):
         print("target shape: ", sample['target'].shape)
         net_output, _ = model(**sample['net_input']) #bz X tgt-len X output_dimension (vocab size)
         bz = net_output.size(0)
-        softmax_output = self.gumbel_softmax(net_output)
+        vocab_size = net_output.size(2)
+        softmax_output = self.gumbel_softmax(net_output, hard=True)
+        index_convert = torch.ones(vocab_size)
+        index_convert[0] = 0
+        index_convert = torch.cumsum(index_convert, 0)
+        softmax_output = softmax_output @ index_convert
+        softmax_output = softmax_output.long()
         src_tokens = sample['net_input']['src_tokens']
 
         # wrap up data for prediction
         prediction_data = {'src': src_tokens,
-                           'mt': softmax_output,
+                           'mt': softmax_output, # bz X tgt-len
                            'ref': sample['target']}
 
         encoder = model.encoder
@@ -53,13 +60,15 @@ class CometCriterion(FairseqCriterion):
         # pre-downloaded estimator from COMET
         route = "/home/steven/.cache/torch/unbabel_comet/wmt-large-da-estimator-1719/_ckpt_epoch_1.ckpt"
         model = load_checkpoint(route)
+
         prediction_score = model.predict_vector(prediction_data, cuda=False, batch_size=bz)
-
         source_side_score = model.predict_vector(source_data, cuda=False, batch_size=bz)
+        # print("scores: ", prediction_score, source_side_score)
+        loss = self.alpha * prediction_score + (1-self.alpha) * (-source_side_score)
+        # convert loss into a scaler (avg the batch loss)
+        loss = torch.sum(loss) / bz
+        print("loss: ", loss)
 
-
-
-        loss = self.alpha * prediction_score + (1-self.alpha) * source_side_score
         sample_size = sample['target'].size(0) if self.args.sentence_avg else sample['ntokens']
         logging_output = {
             'loss': utils.item(loss.data) if reduce else loss.data,

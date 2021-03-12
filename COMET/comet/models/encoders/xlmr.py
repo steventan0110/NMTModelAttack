@@ -177,6 +177,7 @@ class XLMREncoder(Encoder):
             `all_layers` (List with word_embeddings from all layers), `extra` (tuple with all XLM-R layers).
         """
         mask = lengths_to_mask(lengths, device=tokens.device)
+        # print(tokens.shape)
         all_layers = self.model.extract_features(tokens, return_all_hiddens=True)
         return {
             "sentemb": all_layers[-1][:, 0, :],

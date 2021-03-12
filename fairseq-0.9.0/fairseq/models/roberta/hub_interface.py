@@ -76,12 +76,14 @@ class RobertaHubInterface(nn.Module):
         return sentences
 
     def extract_features(self, tokens: torch.LongTensor, return_all_hiddens: bool = False) -> torch.Tensor:
-        if tokens.dim() == 1:
-            tokens = tokens.unsqueeze(0)
-        if tokens.size(-1) > self.model.max_positions():
-            raise ValueError('tokens exceeds maximum length: {} > {}'.format(
-                tokens.size(-1), self.model.max_positions()
-            ))
+        # TODO: my embedding token requires following source code to be commented out, maybe
+        #  write general version in future work
+        # if tokens.dim() == 1:
+        #     tokens = tokens.unsqueeze(0)
+        # if tokens.size(-1) > self.model.max_positions():
+        #     raise ValueError('tokens exceeds maximum length: {} > {}'.format(
+        #         tokens.size(-1), self.model.max_positions()
+        #     ))
         features, extra = self.model(
             tokens.to(device=self.device),
             features_only=True,
