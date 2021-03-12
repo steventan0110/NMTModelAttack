@@ -2,7 +2,7 @@
 
 source /home/steven/Documents/GITHUB/NMTModelAttack/ma/bin/activate
 ROOT=/home/steven/Documents/GITHUB/NMTModelAttack
-DATA=$ROOT/dataset
+DATA=$ROOT/dataset/debug
 Pretrain_Model=/home/steven/Documents/GITHUB/NMTModelAttack/pretrain_models/xlmr.base
 
 fairseq-preprocess \
@@ -12,5 +12,5 @@ fairseq-preprocess \
       --trainpref $DATA/train.bpe \
       --validpref $DATA/dev.bpe \
       --testpref $DATA/test.bpe \
-      --destdir $ROOT/data-bin \
+      --destdir $ROOT/data-bin/debug \
     --workers 8

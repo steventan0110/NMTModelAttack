@@ -53,10 +53,10 @@ class CometCriterion(FairseqCriterion):
         # pre-downloaded estimator from COMET
         route = "/home/steven/.cache/torch/unbabel_comet/wmt-large-da-estimator-1719/_ckpt_epoch_1.ckpt"
         model = load_checkpoint(route)
-        source_side_score = model.predict_vector(source_data, cuda=False, batch_size=bz)
-        print(source_side_score)
-        raise Exception()
         prediction_score = model.predict_vector(prediction_data, cuda=False, batch_size=bz)
+
+        source_side_score = model.predict_vector(source_data, cuda=False, batch_size=bz)
+
 
 
         loss = self.alpha * prediction_score + (1-self.alpha) * source_side_score
