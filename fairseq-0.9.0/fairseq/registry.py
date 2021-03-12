@@ -38,6 +38,8 @@ def setup_registry(
         else:
             builder = cls
         set_defaults(args, cls)
+
+        # temp = builder(args, *extra_args, **extra_kwargs)
         return builder(args, *extra_args, **extra_kwargs)
 
     def register_x(name):

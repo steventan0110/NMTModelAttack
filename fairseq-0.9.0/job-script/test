@@ -1,9 +1,14 @@
 #!/bin/bash
 
+source /home/steven/Documents/GITHUB/NMTModelAttack/ma/bin/activate
+ROOT=/home/steven/Documents/GITHUB/NMTModelAttack
+DATA=$ROOT/dataset/debug
+Pretrain_Model=/home/steven/Documents/GITHUB/NMTModelAttack/pretrain_models/xlmr.base
 
-source /home/steven/Documents/GITHUB/temp/COMET/comet/bin/activate
-DATA=/home/steven/Documents/GITHUB/temp/fairseq-0.9.0/data-bin
-
-fairseq-generate $DATA/wmt14.en-fr.newstest2014  \
-    --path $DATA/wmt14.en-fr.fconv-py/model.pt \
-    --beam 5 --batch-size 128 --remove-bpe | tee $DATA/gen.out
+fairseq-preprocess \
+    --source-lang zh --target-lang en \
+    --joined-dictionary \
+      --trainpref $DATA/train.bpe \
+      --validpref $DATA/dev.bpe \
+      --testpref $DATA/test.bpe \
+      --destdir $ROOT/data-bin/debug \

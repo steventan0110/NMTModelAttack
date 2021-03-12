@@ -76,6 +76,7 @@ def main(args, init_distributed=False):
     train_meter = StopwatchMeter()
     train_meter.start()
     valid_subsets = args.valid_subset.split(',')
+
     while (
         lr > args.min_lr
         and (epoch_itr.epoch < max_epoch or (epoch_itr.epoch == max_epoch
@@ -101,6 +102,7 @@ def main(args, init_distributed=False):
         # sharded data: get train iterator for next epoch
         epoch_itr = trainer.get_train_iterator(epoch_itr.epoch, load_dataset=reload_dataset)
     train_meter.stop()
+
     print('| done training in {:.1f} seconds'.format(train_meter.sum))
 
 
