@@ -60,7 +60,6 @@ class Trainer(object):
         # It is less flexible and syncs only the default stats.
         self._all_reduce_list = [0.0] * 6
         self.fast_stat_sync = args.fast_stat_sync
-
         self.init_meters(args)
 
     def init_meters(self, args):
@@ -143,7 +142,7 @@ class Trainer(object):
             if self.cuda and torch.cuda.get_device_capability(0)[0] >= 7:
                 print("| NOTICE: your device may support faster training with --fp16")
             self._optimizer = optim.build_optimizer(self.args, params)
-            print(self._optimizer.get_lr())
+
 
         if self.args.use_bmuf:
             self._optimizer = optim.FairseqBMUF(self.args, self._optimizer)
@@ -151,7 +150,6 @@ class Trainer(object):
         # We should initialize the learning rate scheduler immediately after
         # building the optimizer, so that the initial learning rate is set.
         self._lr_scheduler = lr_scheduler.build_lr_scheduler(self.args, self.optimizer)
-        print(self._optimizer.get_lr())
         self._lr_scheduler.step_update(0)
 
     def save_checkpoint(self, filename, extra_state):

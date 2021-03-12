@@ -167,6 +167,7 @@ class CometEstimator(Estimator):
 
         :return: Dictionary with model outputs to be passed to the loss function.
         """
+        # print(src_tokens, src_lengths)
         src_sentemb = self.get_sentence_embedding(src_tokens, src_lengths)
         mt_sentemb = self.get_sentence_embedding(mt_tokens, mt_lengths)
         ref_sentemb = self.get_sentence_embedding(ref_tokens, ref_lengths)

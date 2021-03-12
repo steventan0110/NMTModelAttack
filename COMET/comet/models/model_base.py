@@ -264,6 +264,12 @@ class ModelBase(ptl.LightningModule):
         """
         pass
 
+    def predict_vector(self, sample):
+        """ customized predict function that takes continuous vector instead of discrete tokens as sample
+            :param samples: dictionary with expected model sequences.
+        """
+        pass
+
     def forward(self, *args, **kwargs) -> Dict[str, torch.Tensor]:
         """
         PyTorch Forward.

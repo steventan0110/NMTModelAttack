@@ -4,7 +4,21 @@ from comet.models import download_model, load_checkpoint
 # estimator model checkpoint location:
 route = "/home/steven/.cache/torch/unbabel_comet/wmt-large-da-estimator-1719/_ckpt_epoch_1.ckpt"
 model = load_checkpoint(route)
-print(model)
+# the encoder uses sentencebpe, following GPT-2 process, the model is xmlr.base's sentencepiece model
+temp = [
+    {
+        "src": "Dem Feuer konnte Einhalt geboten werden",
+        "mt": "The fire could be stopped",
+        "ref": "They were able to control the fire."
+    },
+    {
+        "src": "Schulen und Kindergärten wurden eröffnet.",
+        "mt": "Schools and kindergartens were open",
+        "ref": "Schools and kindergartens opened"
+    }
+]
+model.predict(temp)
+print(model.encoder.tokenizer.encode("a e i de"))
 # print(model)
 
 # prepare model 

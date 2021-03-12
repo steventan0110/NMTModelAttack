@@ -193,6 +193,52 @@ class Estimator(ModelBase):
 
         return sentemb
 
+    def predict_vector(
+            self,
+            samples,
+            cuda=False,
+            batch_size = -1
+    ):
+        if cuda and torch.cuda.is_available():
+            self.to("cuda")
+
+        batch_size = self.hparams.batch_size if batch_size < 1 else batch_size
+        src_tokens = samples['src'] #bz X src_len
+        src_length = torch.zeros(batch_size)
+        src_length[:] = src_tokens.size(1)
+        src_sentemb = self.get_sentence_embedding(src_tokens, src_length)
+
+        ref_tokens = samples['ref']
+        ref_length = torch.zeros(batch_size)
+        ref_length[:] = ref_tokens.size(1)
+        ref_sentemb = self.get_sentence_embedding(ref_tokens, ref_length)
+
+        hypothesis = samples['mt']
+
+        # case1: mt is the source's embedding -> adversarial examples generated
+        if int(hypothesis.size(2)) == 1024:
+            # hypo -> bz X trg_len X embd_dim
+            mt_sentemb = hypothesis
+            print(mt_sentemb.shape)
+            print(ref_sentemb.shape)
+            print(src_sentemb.shape)
+
+            diff_ref = torch.abs(mt_sentemb - ref_sentemb)
+            diff_src = torch.abs(mt_sentemb - src_sentemb)
+
+            prod_ref = mt_sentemb * ref_sentemb
+            prod_src = mt_sentemb * src_sentemb
+        # case2: mt is softmax output (for prediction)
+        else:
+            raise Exception()
+        with torch.no_grad():
+            embedded_sequences = torch.cat(
+                (mt_sentemb, ref_sentemb, prod_ref, diff_ref, prod_src, diff_src), dim=1
+            )
+            score = self.ff(embedded_sequences)
+
+        return score
+
     def predict(
         self,
         samples: List[Dict[str, str]],
