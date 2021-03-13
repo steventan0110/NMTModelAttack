@@ -199,11 +199,18 @@ class Estimator(ModelBase):
             cuda=False,
             batch_size = -1
     ):
+        self.eval()
+
+        # print('| num. model params: {} (num. trained: {})'.format(
+        #     sum(p.numel() for p in self.parameters()),
+        #     sum(p.numel() for p in self.parameters() if p.requires_grad),
+        # ))
+
         if cuda and torch.cuda.is_available():
             self.to("cuda")
 
         batch_size = self.hparams.batch_size if batch_size < 1 else batch_size
-        src_tokens = samples['src'] #bz X src_len
+        src_tokens = samples['src'] # bz X src_len
         src_length = torch.zeros(batch_size)
         src_length[:] = src_tokens.size(1)
         src_sentemb = self.get_sentence_embedding(src_tokens, src_length)
@@ -220,7 +227,7 @@ class Estimator(ModelBase):
         # case1: mt is the source's embedding -> adversarial examples generated
         if hy_len > 2:
             # hypo -> bz X trg_len X embd_dim
-            #TODO: should I use avg pooling ofencoder output to represent sent-embedding?
+            #TODO: should I use avg pooling of encoder output to represent sent-embedding?
             mt_sentemb = hypothesis[:, 0, :]
         # case2: mt is softmax output (for prediction)
         else:
@@ -231,11 +238,11 @@ class Estimator(ModelBase):
 
         prod_ref = mt_sentemb * ref_sentemb
         prod_src = mt_sentemb * src_sentemb
-        with torch.no_grad():
-            embedded_sequences = torch.cat(
-                (mt_sentemb, ref_sentemb, prod_ref, diff_ref, prod_src, diff_src), dim=1
-            )
-            score = self.ff(embedded_sequences)
+
+        embedded_sequences = torch.cat(
+            (mt_sentemb, ref_sentemb, prod_ref, diff_ref, prod_src, diff_src), dim=1
+        )
+        score = self.ff(embedded_sequences)
         return score
 
     def predict(

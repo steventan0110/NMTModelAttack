@@ -32,6 +32,8 @@ class CometCriterion(FairseqCriterion):
         3) logging outputs to display while training
         """
 
+        # freeze update for all part of models except for embedding layer
+
         print("src shape: ", sample['net_input']['src_tokens'].shape)
         print("target shape: ", sample['target'].shape)
         net_output, _ = model(**sample['net_input']) #bz X tgt-len X output_dimension (vocab size)
@@ -42,7 +44,7 @@ class CometCriterion(FairseqCriterion):
         index_convert[0] = 0
         index_convert = torch.cumsum(index_convert, 0)
         softmax_output = softmax_output @ index_convert
-        softmax_output = softmax_output.long()
+        softmax_output = softmax_output.long() # convert softmax prediction into token format
         src_tokens = sample['net_input']['src_tokens']
 
         # wrap up data for prediction

@@ -5,7 +5,8 @@
 
 import numpy as np
 import torch
-
+from fairseq.criterions import comet_score
+from fairseq.models import transformer
 from fairseq import tokenizer
 from fairseq.data import (
     data_utils,
@@ -247,7 +248,8 @@ class FairseqTask(object):
                   gradient
                 - logging outputs to display while training
         """
-        model.train()
+        model.eval() if isinstance(criterion, comet_score.CometCriterion) else model.train()
+
         loss, sample_size, logging_output = criterion(model, sample)
         if ignore_grad:
             loss *= 0

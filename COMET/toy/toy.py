@@ -21,6 +21,9 @@ model.predict(temp)
 print(model.encoder.tokenizer.encode("a e i de"))
 # print(model)
 
+# | dictionary: 250001 types
+# | num. model params: 583740589 (num. trained: 0)
+
 # prepare model 
 with open('gen.out', 'r') as f:
     data = f.read()

@@ -18,6 +18,9 @@ from fairseq import checkpoint_utils, distributed_utils, options, progress_bar, 
 from fairseq.data import iterators
 from fairseq.trainer import Trainer
 from fairseq.meters import AverageMeter, StopwatchMeter
+from fairseq.criterions import comet_score
+from fairseq.models import transformer
+
 
 
 def main(args, init_distributed=False):
@@ -50,6 +53,19 @@ def main(args, init_distributed=False):
     # Build model and criterion
     model = task.build_model(args)
     criterion = task.build_criterion(args)
+    if isinstance(criterion, comet_score.CometCriterion):
+        # change parameters that requires gradient, update optimizer
+        for en_dec in model.children():
+            # en_dec is encoder or decoder, they share the embedding in my construction
+            # keep embedding requires_grad
+            for m in en_dec.children():
+                if not isinstance(m, torch.nn.Embedding):
+                    for p in m.parameters():
+                        p.requires_grad = False
+
+    # for p in model.encoder.embed_tokens.parameters():
+    #     print(p.requires_grad)
+
     print(model)
     print('| model {}, criterion {}'.format(args.arch, criterion.__class__.__name__))
     print('| num. model params: {} (num. trained: {})'.format(
