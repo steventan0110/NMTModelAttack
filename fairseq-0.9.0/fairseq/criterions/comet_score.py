@@ -1,7 +1,7 @@
 import math
 
 from fairseq import utils
-from COMET.comet.models import download_model, load_checkpoint
+from comet.models import download_model, load_checkpoint
 from . import FairseqCriterion, register_criterion
 import torch.nn.functional as F
 import torch
