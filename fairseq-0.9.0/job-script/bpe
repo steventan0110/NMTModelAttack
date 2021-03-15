@@ -1,0 +1,36 @@
+#!/bin/bash
+source /home/steven/Documents/GITHUB/NMTModelAttack/ma/bin/activate
+
+ROOT=/home/steven/Documents/GITHUB/NMTModelAttack
+DATA=$ROOT/dataset
+SRC=zh
+TRT=en
+
+
+python spm_train.py \
+    --input=$DATA/wmt17_without_un.$SRC,$DATA/wmt17_without_un.$TRT \
+    --model_prefix=$DATA/sentencepiece \
+    --vocab_size=36000 \
+    --character_coverage=1.0 \
+    --model_type=bpe \
+
+python spm_encode.py \
+  --model $DATA/sentencepiece.bpe.model \
+  --output_format=piece \
+  --input $DATA/wmt17_without_un.$SRC $DATA/wmt17_without_un.$TRT \
+  --outputs $DATA/zh-en/train.bpe.$SRC $DATA/zh-en/train.bpe.$TRT \
+  --min-len 1 --max-len 1020
+
+python spm_encode.py \
+  --model $DATA/sentencepiece.bpe.model \
+  --output_format=piece \
+  --input $DATA/newstest2017.$SRC $DATA/newstest2017.$TRT \
+  --outputs $DATA/zh-en/dev.bpe.$SRC $DATA/zh-en/dev.bpe.$TRT \
+  --min-len 1 --max-len 1020
+
+python spm_encode.py \
+  --model $DATA/sentencepiece.bpe.model \
+  --output_format=piece \
+  --input $DATA/newstest2020.$SRC $DATA/newstest2020.$TRT \
+  --outputs $DATA/zh-en/test.bpe.$SRC $DATA/zh-en/test.bpe.$TRT \
+  --min-len 1 --max-len 1020

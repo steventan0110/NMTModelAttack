@@ -16,4 +16,4 @@ fairseq-train $DATA \
     --lr 0.0005 --min-lr 1e-09 \
     --criterion label_smoothed_cross_entropy --label-smoothing 0.1 --weight-decay 0.0\
     --max-tokens  4096   --save-dir $Checkpoint \
-    --update-freq 1 \
+    --update-freq 1
