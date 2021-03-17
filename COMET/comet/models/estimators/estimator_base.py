@@ -205,6 +205,8 @@ class Estimator(ModelBase):
         #     sum(p.numel() for p in self.parameters()),
         #     sum(p.numel() for p in self.parameters() if p.requires_grad),
         # ))
+        for p in self.parameters():
+            p.requires_grad = True
 
         if cuda and torch.cuda.is_available():
             self.to("cuda")

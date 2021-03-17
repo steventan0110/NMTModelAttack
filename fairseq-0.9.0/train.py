@@ -21,7 +21,7 @@ from fairseq.meters import AverageMeter, StopwatchMeter
 from fairseq.criterions import comet_score
 from fairseq.models import transformer
 
-
+from comet.models import download_model, load_checkpoint
 
 def main(args, init_distributed=False):
     utils.import_user_module(args)
@@ -54,6 +54,9 @@ def main(args, init_distributed=False):
     model = task.build_model(args)
     criterion = task.build_criterion(args)
     if isinstance(criterion, comet_score.CometCriterion):
+        # pre-downloaded estimator from COMET
+        comet_route = "/home/steven/.cache/torch/unbabel_comet/wmt-large-da-estimator-1719/_ckpt_epoch_1.ckpt"
+        comet_model = load_checkpoint(comet_route)
         # change parameters that requires gradient, update optimizer
         for en_dec in model.children():
             # en_dec is encoder or decoder, they share the embedding in my construction
@@ -100,7 +103,7 @@ def main(args, init_distributed=False):
         and trainer.get_num_updates() < max_update
     ):
         # train for one epoch
-        train(args, trainer, task, epoch_itr)
+        train(args, trainer, task, epoch_itr, comet_model)
 
         if not args.disable_validation and epoch_itr.epoch % args.validate_interval == 0:
             valid_losses = validate(args, trainer, task, epoch_itr, valid_subsets)
@@ -122,7 +125,7 @@ def main(args, init_distributed=False):
     print('| done training in {:.1f} seconds'.format(train_meter.sum))
 
 
-def train(args, trainer, task, epoch_itr):
+def train(args, trainer, task, epoch_itr, comet_model):
     """Train the model for one epoch."""
     # Update parameters every N batches
     update_freq = args.update_freq[epoch_itr.epoch - 1] \
@@ -142,7 +145,7 @@ def train(args, trainer, task, epoch_itr):
     valid_subsets = args.valid_subset.split(',')
     max_update = args.max_update or math.inf
     for i, samples in enumerate(progress, start=epoch_itr.iterations_in_epoch):
-        log_output = trainer.train_step(samples)
+        log_output = trainer.train_step(samples, comet_model=comet_model)
         if log_output is None:
             continue
 

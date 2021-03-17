@@ -5,27 +5,28 @@ import torch
 route = "/home/steven/.cache/torch/unbabel_comet/wmt-large-da-estimator-1719/_ckpt_epoch_1.ckpt"
 model = load_checkpoint(route)
 # the encoder uses sentencebpe, following GPT-2 process, the model is xmlr.base's sentencepiece model
-temp = [
-    {
-        "src": "Dem Feuer konnte Einhalt geboten werden",
-        "mt": "The fire could be stopped",
-        "ref": "They were able to control the fire."
-    },
-    {
-        "src": "Schulen und Kindergärten wurden eröffnet.",
-        "mt": "Schools and kindergartens were open",
-        "ref": "Schools and kindergartens opened"
-    }
-]
-model.predict(temp)
-print(model.encoder.tokenizer.encode("a e i de"))
+# temp = [
+#     {
+#         "src": "Dem Feuer konnte Einhalt geboten werden",
+#         "mt": "The fire could be stopped",
+#         "ref": "They were able to control the fire."
+#     },
+#     {
+#         "src": "Schulen und Kindergärten wurden eröffnet.",
+#         "mt": "Schools and kindergartens were open",
+#         "ref": "Schools and kindergartens opened"
+#     }
+# ]
+# model.predict(temp)
+# print(model.encoder.tokenizer.encode("a e i de"))
 # print(model)
 
 # | dictionary: 250001 types
 # | num. model params: 583740589 (num. trained: 0)
+# Avg Score is:  0.14427588629862292 for zh-en trained for 4 epochs
 
 # prepare model 
-with open('gen.out', 'r') as f:
+with open('gen-zh-en.out', 'r') as f:
     data = f.read()
 
 source = []
@@ -56,3 +57,4 @@ for idx, item in enumerate(prediction[0]):
     size += 1
 avg_score = total_score / size
 print('Avg Score is: ', avg_score)
+
