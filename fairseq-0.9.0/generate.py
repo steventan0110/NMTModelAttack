@@ -101,20 +101,16 @@ def main(args):
                 prefix_tokens = sample['target'][:, :args.prefix_size]
 
             gen_timer.start()
-            hypos = task.inference_step(generator, models, sample, prefix_tokens)
-            # print(sample)
-            # net_output = model(**sample['net_input'])
-            # lprobs = model.get_normalized_probs(net_output, log_probs=True)
-            # softmax_output = torch.argmax(lprobs, dim=2)  # discrete tokenizer
-            # print('softmax output: ', softmax_output)
 
-            # for h in hypos[0]:
-            #     target_tokens = h['tokens']
-            #     target_str = tgt_dict.string(target_tokens, args.remove_bpe, escape_unk=True)
-            #     print(target_tokens)
-            #     print(target_str)
-            # # print(model)
-            # raise Exception
+            hypos = task.inference_step(generator, models, sample, prefix_tokens)
+
+            # for item in hypos:
+            #     for h in item:
+            #         target_tokens = h['tokens']
+            #         target_str = tgt_dict.string(target_tokens, args.remove_bpe, escape_unk=True)
+            #         print(target_tokens)
+            #         print(target_str)
+
             num_generated_tokens = sum(len(h[0]['tokens']) for h in hypos)
             gen_timer.stop(num_generated_tokens)
 
