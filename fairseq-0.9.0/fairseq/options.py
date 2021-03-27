@@ -20,6 +20,8 @@ def get_preprocessing_parser(default_task='translation'):
 
 def get_training_parser(default_task='translation'):
     parser = get_parser('Trainer', default_task)
+    parser.add_argument('--dual-model-pretrain', action="store_true",
+                       help='enable dual model training')
     add_dataset_args(parser, train=True)
     add_distributed_training_args(parser)
     add_model_args(parser)
@@ -527,6 +529,7 @@ def add_interactive_args(parser):
 
 def add_model_args(parser):
     group = parser.add_argument_group('Model configuration')
+
     # fmt: off
 
     # Model definitions can be found under fairseq/models/

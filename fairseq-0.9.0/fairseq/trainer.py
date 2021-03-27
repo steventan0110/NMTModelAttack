@@ -186,14 +186,37 @@ class Trainer(object):
         except (ModuleNotFoundError, ImportError):
             bexists = os.path.exists(filename)
 
+
+        def print_model(model):
+            displayed=False
+            for en_dec in model.children():
+                # en_dec is encoder or decoder, they share the embedding in my construction
+                # keep embedding requires_grad
+                for m in en_dec.children():
+                    # print(m)
+                    if isinstance(m, torch.nn.SinusoidalPositionalEmbedding):
+                        for p in m.parameters():
+                            print(p.data)
+                        break
+                print("####################################33")
+
         if bexists:
             state = checkpoint_utils.load_checkpoint_to_cpu(filename)
-
+            # revise the state for training on the opposite direction
             # load model parameters
+            if self.args.dual_model_pretrain:
+                from collections import OrderedDict
+                # only keep the encoder embedding of loaded model
+                encoder_emb = state['model']['encoder.embed_tokens.weight']
+                state['model'] = OrderedDict()
+                # use encoder embed to update decoder embed
+                state['model']['decoder.embed_tokens.weight'] = encoder_emb
             try:
+                isStrict = False if self.args.dual_model_pretrain else True
                 self.get_model().load_state_dict(
-                    state["model"], strict=True, args=self.args
+                    state["model"], strict=isStrict, args=self.args
                 )
+
                 if utils.has_parameters(self.get_criterion()):
                     self.get_criterion().load_state_dict(
                         state["criterion"], strict=True

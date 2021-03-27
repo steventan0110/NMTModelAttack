@@ -52,6 +52,7 @@ def main(args, init_distributed=False):
 
     # Build model and criterion
     model = task.build_model(args)
+    print(model)
     criterion = task.build_criterion(args)
     if isinstance(criterion, comet_score.CometCriterion):
         # pre-downloaded estimator from COMET
@@ -65,11 +66,20 @@ def main(args, init_distributed=False):
                 if not isinstance(m, torch.nn.Embedding):
                     for p in m.parameters():
                         p.requires_grad = False
+    else:
+        comet_model = None
 
-    # for p in model.encoder.embed_tokens.parameters():
-    #     print(p.requires_grad)
 
-    print(model)
+    # for dual model we freeze the decoder embed of trg-src
+    if args.dual_model_pretrain:
+        for en_dec in model.children():
+            # freeze the decoder embedding
+            if isinstance(en_dec, transformer.TransformerDecoder):
+                for m in en_dec.children():
+                    if isinstance(m, torch.nn.Embedding):
+                        for p in m.parameters():
+                            p.requires_grad = False
+
     print('| model {}, criterion {}'.format(args.arch, criterion.__class__.__name__))
     print('| num. model params: {} (num. trained: {})'.format(
         sum(p.numel() for p in model.parameters()),
