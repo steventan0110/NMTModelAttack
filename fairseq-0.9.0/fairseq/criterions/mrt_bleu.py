@@ -55,7 +55,7 @@ class MRTBLEU(FairseqCriterion):
         for i in range(self.k):
             tokens = src_tokens.new_full((bsz, max_len + 2), pad)
             tokens[:, 0] = eos
-            sentence_prob = src_tokens.new_full((bsz, 1), 1)
+            sentence_prob = src_tokens.new_full((bsz, 1), 0)
             # used for finished sentence
             is_decoding = src_tokens.new_ones(bsz).bool()
             for step in range(max_len + 1):
@@ -75,15 +75,16 @@ class MRTBLEU(FairseqCriterion):
                     pad
                 )
                 prob[~is_decoding] = 1
-                # TODO: prob accumulated is too small, maybe replaced by log operation/division by small number
-                sentence_prob = sentence_prob * prob
+
+                sentence_prob = sentence_prob + torch.log(prob)
                 tokens[:, step + 1] = new_token
                 # Update is_decoding flag.
                 is_decoding = is_decoding * torch.ne(new_token, eos)
             # add #bsz inferenced sample into output, along with their prob
-
+            print(sentence_prob)
             out_indice[i, :, :] = tokens
             out_prob[i, :] = sentence_prob.squeeze(-1)
+
         # k x bz x len => bz x k x len
         out_indice = out_indice.permute(1, 0, 2)
         # k x bz => bz x k
@@ -99,9 +100,17 @@ class MRTBLEU(FairseqCriterion):
         2) the sample size, which is used as the denominator for the gradient
         3) logging outputs to display while training
         """
+
         # generate a sub sample space of size k
         indice, prob = self.subsample(model, sample)
         bz = prob.size(0)
+        Q = prob.unsqueeze(1).repeat(1, self.k, 1)
+        Q = Q - prob.unsqueeze(2) # elementwise log diff
+        print(Q)
+        Q = torch.logsumexp(Q, 2)
+        print(Q)
+        raise Exception
+
         prob = prob * self.alpha
         denom = torch.sum(prob, dim=1, keepdim=True)
         # print(prob, denom)
