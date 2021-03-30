@@ -51,24 +51,25 @@ class MRTBLEU(FairseqCriterion):
         out_prob = src_tokens.new_full(
             (self.k, bsz),
             0.0
-        )
-        for i in range(self.k):
+        ).float()
+        num_subsample = 0
+        while num_subsample < self.k:
             tokens = src_tokens.new_full((bsz, max_len + 2), pad)
             tokens[:, 0] = eos
-            sentence_prob = src_tokens.new_full((bsz, 1), 0)
+            sentence_prob = src_tokens.new_full((bsz, 1), 0.0)
             # used for finished sentence
             is_decoding = src_tokens.new_ones(bsz).bool()
             for step in range(max_len + 1):
                 if is_decoding.sum() == 0:
                     break
-                lprob, avg_att = model.forward_decoder(tokens[:, :step + 1], encoder_out=encoder_outs, temperature=1)
+                lprob, avg_att = model.forward_decoder(tokens[:, :step + 1].clone(), encoder_out=encoder_outs, temperature=1)
                 lprob = lprob[:, -1, :]
                 lprob[:, pad] = -math.inf
                 # apply softmax because probability needs to be tracked
                 lprob = torch.softmax(lprob, dim=1)
                 new_token = torch.multinomial(lprob, 1) # bz x 1, need to squeeze later
                 # retrieve the probability
-                prob = torch.gather(lprob, 1, new_token)
+                prob = torch.gather(lprob, 1, new_token.clone())
                 # pad the already finished sentence and fix the prob
                 new_token = new_token.squeeze().masked_fill_(
                     ~is_decoding,
@@ -76,14 +77,21 @@ class MRTBLEU(FairseqCriterion):
                 )
                 prob[~is_decoding] = 1
 
-                sentence_prob = sentence_prob + torch.log(prob)
+                sentence_prob = sentence_prob + prob.log()
                 tokens[:, step + 1] = new_token
                 # Update is_decoding flag.
                 is_decoding = is_decoding * torch.ne(new_token, eos)
-            # add #bsz inferenced sample into output, along with their prob
-            print(sentence_prob)
-            out_indice[i, :, :] = tokens
-            out_prob[i, :] = sentence_prob.squeeze(-1)
+            # check duplication
+            hasDuplicate = False
+            for i in range(out_indice.size(0)):
+                if torch.equal(out_indice[i, :, :], tokens):
+                    hasDuplicate = True
+                    break
+            if not hasDuplicate:
+                # add #bsz inferenced sample into output, along with their prob
+                out_indice[num_subsample, :, :] = tokens
+                out_prob[num_subsample, :] = sentence_prob.squeeze(-1)
+                num_subsample += 1
 
         # k x bz x len => bz x k x len
         out_indice = out_indice.permute(1, 0, 2)
@@ -102,19 +110,16 @@ class MRTBLEU(FairseqCriterion):
         """
 
         # generate a sub sample space of size k
+
         indice, prob = self.subsample(model, sample)
         bz = prob.size(0)
-        Q = prob.unsqueeze(1).repeat(1, self.k, 1)
-        Q = Q - prob.unsqueeze(2) # elementwise log diff
-        print(Q)
-        Q = torch.logsumexp(Q, 2)
-        print(Q)
-        raise Exception
-
         prob = prob * self.alpha
-        denom = torch.sum(prob, dim=1, keepdim=True)
-        # print(prob, denom)
-        Q = torch.div(prob, denom) # have nan for Q because value too small
+
+        # Q = prob.unsqueeze(1).repeat(1, self.k, 1) - prob.unsqueeze(2) # elementwise log diff
+        # Q = torch.logsumexp(Q, 2)
+        #TODO: not using logsum here cause prob after alpha is not extreme anymore
+        Q = prob.exp() / prob.exp().sum(1, keepdim=True)
+
 
         # convert indices into sentence and compute score using sacrebleu
         scorer = bleu.SacrebleuScorer()
@@ -133,14 +138,12 @@ class MRTBLEU(FairseqCriterion):
                 scorer.add_string(tgt_sent, sys_sent)
                 bleu_score = scorer.score()
                 all_score[batch, j] = bleu_score
-            print()
-
-        # print(all_score)
 
         # compute risk and perform backprop
-        risk = torch.sum(Q * all_score, 1)
-        loss = 1 - risk.mean()
-        print(risk, loss)
+        #print(all_score)
+        # loss = - risk
+        loss = -torch.sum(Q * all_score)
+
 
         sample_size = sample['target'].size(0) if self.args.sentence_avg else sample['ntokens']
         logging_output = {

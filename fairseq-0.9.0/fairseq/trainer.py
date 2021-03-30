@@ -349,6 +349,8 @@ class Trainer(object):
             try:
                 with maybe_no_sync():
                     # forward and backward
+
+                    # with torch.autograd.set_detect_anomaly(True):
                     loss, sample_size, logging_output = self.task.train_step(
                         sample, self.model, self.criterion, self.optimizer, ignore_grad, comet_model=comet_model
                     )
