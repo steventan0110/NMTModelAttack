@@ -186,6 +186,12 @@ def main(args):
                             # Convert back to tokens for evaluation with unk replacement and/or without BPE
                             target_tokens = tgt_dict.encode_line(target_str, add_if_not_exist=True)
                         if hasattr(scorer, 'add_string'):
+                            if args.target_lang == 'zh':
+                                # tokenize chinese sentence
+                                import sacrebleu
+                                tok = sacrebleu.tokenizers.TokenizerZh()
+                                target_str = tok(target_str)
+                                hypo_str = tok(hypo_str)
                             scorer.add_string(target_str, hypo_str)
                         else:
                             scorer.add(target_tokens, hypo_tokens)
@@ -197,7 +203,7 @@ def main(args):
     print('| Translated {} sentences ({} tokens) in {:.1f}s ({:.2f} sentences/s, {:.2f} tokens/s)'.format(
         num_sentences, gen_timer.n, gen_timer.sum, num_sentences / gen_timer.sum, 1. / gen_timer.avg))
     if has_target:
-        print('| Generate {} with beam={}: {}'.format(args.gen_subset, args.beam, scorer.result_string()))
+        print('| Generate {} with beam={}: {}'.format(args.gen_subset, args.beam, scorer.score()))
 
     return scorer
 
