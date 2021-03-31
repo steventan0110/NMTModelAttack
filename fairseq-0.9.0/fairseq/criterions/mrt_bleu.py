@@ -41,19 +41,19 @@ class MRTBLEU(FairseqCriterion):
         encoder_outs = model.encoder(src_tokens, src_lengths=src_length)
 
         # max_len = model.max_decoder_positions() - 1
-        max_len = 200
+        max_len = sample['net_input']['prev_output_tokens'].size(-1) + 5
 
         # perform sub sample search
         out_indice = src_tokens.new_full(
             (self.k, bsz, max_len+2),
             pad
         )
-        out_prob = src_tokens.new_full(
-            (self.k, bsz),
-            0.0
-        ).float()
+        # out_prob = src_tokens.new_full(
+        #     (self.k, bsz),
+        #     0.0
+        # ).float()
         num_subsample = 0
-        while num_subsample < self.k:
+        while num_subsample < self.k - 1:
             tokens = src_tokens.new_full((bsz, max_len + 2), pad)
             tokens[:, 0] = eos
             sentence_prob = src_tokens.new_full((bsz, 1), 0.0)
@@ -62,25 +62,28 @@ class MRTBLEU(FairseqCriterion):
             for step in range(max_len + 1):
                 if is_decoding.sum() == 0:
                     break
-                lprob, avg_att = model.forward_decoder(tokens[:, :step + 1].clone(), encoder_out=encoder_outs, temperature=1)
+                lprob, avg_att = model.forward_decoder(tokens[:, :step + 1], encoder_out=encoder_outs, temperature=1)
                 lprob = lprob[:, -1, :]
                 lprob[:, pad] = -math.inf
                 # apply softmax because probability needs to be tracked
                 lprob = torch.softmax(lprob, dim=1)
-                new_token = torch.multinomial(lprob, 1) # bz x 1, need to squeeze later
+                new_token = torch.multinomial(lprob, 1).squeeze() # bz x 1, need to squeeze later
                 # retrieve the probability
-                prob = torch.gather(lprob, 1, new_token.clone())
+                # prob = torch.gather(lprob, 1, new_token.clone())
                 # pad the already finished sentence and fix the prob
-                new_token = new_token.squeeze().masked_fill_(
+
+                new_token = new_token.masked_fill_(
                     ~is_decoding,
                     pad
                 )
-                prob[~is_decoding] = 1
-
-                sentence_prob = sentence_prob + prob.log()
-                tokens[:, step + 1] = new_token
                 # Update is_decoding flag.
                 is_decoding = is_decoding * torch.ne(new_token, eos)
+
+                # prob[~is_decoding] = 1
+
+                # sentence_prob = sentence_prob + prob.log()
+                tokens[:, step + 1] = new_token
+
             # check duplication
             hasDuplicate = False
             for i in range(out_indice.size(0)):
@@ -90,15 +93,19 @@ class MRTBLEU(FairseqCriterion):
             if not hasDuplicate:
                 # add #bsz inferenced sample into output, along with their prob
                 out_indice[num_subsample, :, :] = tokens
-                out_prob[num_subsample, :] = sentence_prob.squeeze(-1)
+                # out_prob[num_subsample, :] = sentence_prob.squeeze(-1)
                 num_subsample += 1
 
+        # add in the gold translation
+        pad_len = out_indice.size(2) - sample['net_input']['prev_output_tokens'].size(1)
+        padding = out_indice.new_full((bsz, pad_len), pad)
+        out_indice[self.k-1, :, :] = torch.cat((sample['net_input']['prev_output_tokens'], padding), dim=1)
         # k x bz x len => bz x k x len
         out_indice = out_indice.permute(1, 0, 2)
         # k x bz => bz x k
-        out_prob = out_prob.permute(1, 0)
+        # out_prob = out_prob.permute(1, 0)
 
-        return out_indice, out_prob
+        return out_indice
 
     def forward(self, model, sample, reduce=True):
         """Compute the loss for the given sample.
@@ -108,22 +115,46 @@ class MRTBLEU(FairseqCriterion):
         2) the sample size, which is used as the denominator for the gradient
         3) logging outputs to display while training
         """
-
+        eos = self.task.target_dictionary.eos()
+        pad = self.task.target_dictionary.pad()
         # generate a sub sample space of size k
+        with torch.no_grad():
+            indice = self.subsample(model, sample)
 
-        indice, prob = self.subsample(model, sample)
-        bz = prob.size(0)
-        prob = prob * self.alpha
+        bz = indice.size(0)
+        prev_output_token = indice.reshape(-1, indice.size(2))
+        custom_input = sample
+        custom_input['net_input']['src_tokens'] = sample['net_input']['src_tokens'].repeat_interleave(self.k, dim=0)
+        custom_input['net_input']['src_lengths'] = sample['net_input']['src_lengths'].repeat_interleave(self.k, dim=0)
+        custom_input['net_input']['prev_output_tokens'] = prev_output_token
+
+        # get log prob of batch X k samples
+        net_output = model(**custom_input['net_input'])
+        lprobs = model.get_normalized_probs(net_output, log_probs=True)
+        custom_target = prev_output_token.roll(-1, 1) # shift to left, along dim=1
+        custom_target[:, -1] = pad
+
+        sent_prob = lprobs.gather(-1, custom_target.unsqueeze(-1)).squeeze()
+
+        # TODO: didnt remove padding since cannot flatten as in NLL
+        # non_pad_mask = custom_target.ne(pad)
+        # sent_prob = sent_prob[non_pad_mask]
+
+        sent_prob = sent_prob.sum(dim=-1).view(bz, self.k)
+        sent_prob = sent_prob * self.alpha
+        Q = sent_prob.exp() / sent_prob.exp().sum(1, keepdim=True)
+
+
 
         # Q = prob.unsqueeze(1).repeat(1, self.k, 1) - prob.unsqueeze(2) # elementwise log diff
         # Q = torch.logsumexp(Q, 2)
         #TODO: not using logsum here cause prob after alpha is not extreme anymore
-        Q = prob.exp() / prob.exp().sum(1, keepdim=True)
+
 
 
         # convert indices into sentence and compute score using sacrebleu
         scorer = bleu.SacrebleuScorer()
-        all_score = prob.new_full((bz, self.k), 0)
+        all_score = Q.new_full((bz, self.k), 0)
         # TODO: use two for loop, might be able to speed up with parallelization?
         for batch in range(bz):
             scorer.reset()
@@ -138,9 +169,10 @@ class MRTBLEU(FairseqCriterion):
                 scorer.add_string(tgt_sent, sys_sent)
                 bleu_score = scorer.score()
                 all_score[batch, j] = bleu_score
+            # print()
 
         # compute risk and perform backprop
-        #print(all_score)
+        # print(all_score)
         # loss = - risk
         loss = -torch.sum(Q * all_score)
 
