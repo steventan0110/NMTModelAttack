@@ -71,7 +71,6 @@ class MRTBLEU(FairseqCriterion):
                 # retrieve the probability
                 # prob = torch.gather(lprob, 1, new_token.clone())
                 # pad the already finished sentence and fix the prob
-
                 new_token = new_token.masked_fill_(
                     ~is_decoding,
                     pad
@@ -97,9 +96,10 @@ class MRTBLEU(FairseqCriterion):
                 num_subsample += 1
 
         # add in the gold translation
-        pad_len = out_indice.size(2) - sample['net_input']['prev_output_tokens'].size(1)
+        pad_len = out_indice.size(2) - sample['net_input']['prev_output_tokens'].size(1) - 1
+        end_of_sent = out_indice.new_full((bsz, 1), eos)
         padding = out_indice.new_full((bsz, pad_len), pad)
-        out_indice[self.k-1, :, :] = torch.cat((sample['net_input']['prev_output_tokens'], padding), dim=1)
+        out_indice[self.k-1, :, :] = torch.cat((sample['net_input']['prev_output_tokens'], end_of_sent, padding), dim=1)
         # k x bz x len => bz x k x len
         out_indice = out_indice.permute(1, 0, 2)
         # k x bz => bz x k
@@ -129,52 +129,46 @@ class MRTBLEU(FairseqCriterion):
         custom_input['net_input']['prev_output_tokens'] = prev_output_token
 
         # get log prob of batch X k samples
+
         net_output = model(**custom_input['net_input'])
         lprobs = model.get_normalized_probs(net_output, log_probs=True)
         custom_target = prev_output_token.roll(-1, 1) # shift to left, along dim=1
         custom_target[:, -1] = pad
-
         sent_prob = lprobs.gather(-1, custom_target.unsqueeze(-1)).squeeze()
-
-        # TODO: didnt remove padding since cannot flatten as in NLL
-        # non_pad_mask = custom_target.ne(pad)
-        # sent_prob = sent_prob[non_pad_mask]
-
+        non_pad_mask = custom_target.ne(pad)
+        sent_prob = sent_prob * non_pad_mask
         sent_prob = sent_prob.sum(dim=-1).view(bz, self.k)
         sent_prob = sent_prob * self.alpha
-        Q = sent_prob.exp() / sent_prob.exp().sum(1, keepdim=True)
-
-
-
-        # Q = prob.unsqueeze(1).repeat(1, self.k, 1) - prob.unsqueeze(2) # elementwise log diff
-        # Q = torch.logsumexp(Q, 2)
-        #TODO: not using logsum here cause prob after alpha is not extreme anymore
-
-
-
-        # convert indices into sentence and compute score using sacrebleu
-        scorer = bleu.SacrebleuScorer()
-        all_score = Q.new_full((bz, self.k), 0)
-        # TODO: use two for loop, might be able to speed up with parallelization?
-        for batch in range(bz):
-            scorer.reset()
-            tgt_token = utils.strip_pad(sample['target'][batch, :], self.task.target_dictionary.pad()).int()
-            tgt_sent = self.task.target_dictionary.string(tgt_token, "sentencepiece", escape_unk=True)
-            # print(tgt_sent)
-            for j in range(self.k):
-                sys_token = indice[batch, j]
-                sys_token = utils.strip_pad(sys_token, self.task.target_dictionary.pad()).int()
-                sys_sent = self.task.target_dictionary.string(sys_token, "sentencepiece", escape_unk=True)
-                # print(sys_sent)
-                scorer.add_string(tgt_sent, sys_sent)
-                bleu_score = scorer.score()
-                all_score[batch, j] = bleu_score
-            # print()
-
-        # compute risk and perform backprop
-        # print(all_score)
-        # loss = - risk
-        loss = -torch.sum(Q * all_score)
+        loss = -sent_prob.sum()
+        print(loss)
+        # Q = sent_prob.exp() / sent_prob.exp().sum(1, keepdim=True)
+        #
+        # # Q = prob.unsqueeze(1).repeat(1, self.k, 1) - prob.unsqueeze(2) # elementwise log diff
+        # # Q = torch.logsumexp(Q, 2)
+        #
+        # # convert indices into sentence and compute score using sacrebleu
+        # scorer = bleu.SacrebleuScorer()
+        # all_score = Q.new_full((bz, self.k), 0)
+        # # TODO: use two for loop, might be able to speed up with parallelization?
+        # for batch in range(bz):
+        #     scorer.reset()
+        #     tgt_token = utils.strip_pad(sample['target'][batch, :], self.task.target_dictionary.pad()).int()
+        #     tgt_sent = self.task.target_dictionary.string(tgt_token, "sentencepiece", escape_unk=True)
+        #     # print(tgt_sent)
+        #     for j in range(self.k):
+        #         sys_token = indice[batch, j]
+        #         sys_token = utils.strip_pad(sys_token, self.task.target_dictionary.pad()).int()
+        #         sys_sent = self.task.target_dictionary.string(sys_token, "sentencepiece", escape_unk=True)
+        #         # print(sys_sent)
+        #         scorer.add_string(tgt_sent, sys_sent)
+        #         bleu_score = scorer.score()
+        #         all_score[batch, j] = bleu_score
+        #     # print()
+        #
+        # # compute risk and perform backprop
+        # # print(all_score)
+        #
+        # loss = -torch.sum(Q * all_score) # loss = - risk
 
 
         sample_size = sample['target'].size(0) if self.args.sentence_avg else sample['ntokens']

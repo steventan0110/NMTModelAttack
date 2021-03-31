@@ -22,6 +22,8 @@ def label_smoothed_nll_loss(lprobs, target, epsilon, ignore_index=None, reduce=T
     else:
         nll_loss = nll_loss.squeeze(-1)
         smooth_loss = smooth_loss.squeeze(-1)
+    # temp = nll_loss.view(2, -1)
+    # print(temp.sum(dim=1))
     if reduce:
         nll_loss = nll_loss.sum()
         smooth_loss = smooth_loss.sum()
@@ -55,6 +57,8 @@ class LabelSmoothedCrossEntropyCriterion(FairseqCriterion):
         """
         net_output = model(**sample['net_input'])
         loss, nll_loss = self.compute_loss(model, net_output, sample, reduce=reduce)
+        # print(sample['target'])
+        # raise Exception
         sample_size = sample['target'].size(0) if self.args.sentence_avg else sample['ntokens']
         logging_output = {
             'loss': utils.item(loss.data) if reduce else loss.data,
