@@ -121,6 +121,8 @@ class MRTBLEU(FairseqCriterion):
         with torch.no_grad():
             indice = self.subsample(model, sample)
 
+
+        ################################################################
         bz = indice.size(0)
         prev_output_token = indice.reshape(-1, indice.size(2))
         custom_input = sample
@@ -139,37 +141,36 @@ class MRTBLEU(FairseqCriterion):
         sent_prob = sent_prob * non_pad_mask
         sent_prob = sent_prob.sum(dim=-1).view(bz, self.k)
         sent_prob = sent_prob * self.alpha
-        loss = -sent_prob.sum()
-        print(loss)
-        # Q = sent_prob.exp() / sent_prob.exp().sum(1, keepdim=True)
-        #
-        # # Q = prob.unsqueeze(1).repeat(1, self.k, 1) - prob.unsqueeze(2) # elementwise log diff
-        # # Q = torch.logsumexp(Q, 2)
-        #
-        # # convert indices into sentence and compute score using sacrebleu
-        # scorer = bleu.SacrebleuScorer()
-        # all_score = Q.new_full((bz, self.k), 0)
-        # # TODO: use two for loop, might be able to speed up with parallelization?
-        # for batch in range(bz):
-        #     scorer.reset()
-        #     tgt_token = utils.strip_pad(sample['target'][batch, :], self.task.target_dictionary.pad()).int()
-        #     tgt_sent = self.task.target_dictionary.string(tgt_token, "sentencepiece", escape_unk=True)
-        #     # print(tgt_sent)
-        #     for j in range(self.k):
-        #         sys_token = indice[batch, j]
-        #         sys_token = utils.strip_pad(sys_token, self.task.target_dictionary.pad()).int()
-        #         sys_sent = self.task.target_dictionary.string(sys_token, "sentencepiece", escape_unk=True)
-        #         # print(sys_sent)
-        #         scorer.add_string(tgt_sent, sys_sent)
-        #         bleu_score = scorer.score()
-        #         all_score[batch, j] = bleu_score
-        #     # print()
-        #
-        # # compute risk and perform backprop
-        # # print(all_score)
-        #
-        # loss = -torch.sum(Q * all_score) # loss = - risk
 
+        Q = sent_prob.exp() / sent_prob.exp().sum(1, keepdim=True)
+
+        # Q = prob.unsqueeze(1).repeat(1, self.k, 1) - prob.unsqueeze(2) # elementwise log diff
+        # Q = torch.logsumexp(Q, 2)
+
+        # convert indices into sentence and compute score using sacrebleu
+        scorer = bleu.SacrebleuScorer()
+        all_score = Q.new_full((bz, self.k), 0)
+        # TODO: use two for loop, might be able to speed up with parallelization?
+        for batch in range(bz):
+            scorer.reset()
+            tgt_token = utils.strip_pad(sample['target'][batch, :], self.task.target_dictionary.pad()).int()
+            tgt_sent = self.task.target_dictionary.string(tgt_token, "sentencepiece", escape_unk=True)
+            # print(tgt_sent)
+            for j in range(self.k):
+                sys_token = indice[batch, j]
+                sys_token = utils.strip_pad(sys_token, self.task.target_dictionary.pad()).int()
+                sys_sent = self.task.target_dictionary.string(sys_token, "sentencepiece", escape_unk=True)
+                # print(sys_sent)
+                scorer.add_string(tgt_sent, sys_sent)
+                bleu_score = scorer.score()
+                all_score[batch, j] = bleu_score
+            # print()
+
+        # compute risk and perform backprop
+        # print(all_score)
+
+        loss = -torch.sum(Q * all_score) # loss = - risk
+        #########################################################
 
         sample_size = sample['target'].size(0) if self.args.sentence_avg else sample['ntokens']
         logging_output = {
