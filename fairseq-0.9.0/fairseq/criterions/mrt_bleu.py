@@ -67,10 +67,11 @@ class MRTBLEU(FairseqCriterion):
                 lprob[:, pad] = -math.inf
                 # apply softmax because probability needs to be tracked
                 lprob = torch.softmax(lprob, dim=1)
-                new_token = torch.multinomial(lprob, 1).squeeze() # bz x 1, need to squeeze later
+                new_token = torch.multinomial(lprob, 1).squeeze(-1) # bz x 1, need to squeeze later
                 # retrieve the probability
                 # prob = torch.gather(lprob, 1, new_token.clone())
                 # pad the already finished sentence and fix the prob
+                
                 new_token = new_token.masked_fill_(
                     ~is_decoding,
                     pad
@@ -170,6 +171,7 @@ class MRTBLEU(FairseqCriterion):
         # print(all_score)
 
         loss = -torch.sum(Q * all_score) # loss = - risk
+    
         #########################################################
 
         sample_size = sample['target'].size(0) if self.args.sentence_avg else sample['ntokens']
