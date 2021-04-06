@@ -33,3 +33,7 @@ if __name__ == '__main__':
     #          6, 1574, 533, 20, 143, 5, 2]])
 # end_memory - start_memory, end_max_memory - start_max_memory
 # 238.3369140625 230.10791015625
+
+
+    # tensor([[-45.8811],
+    #         [-56.5796]], device='cuda:0', grad_fn= < ViewBackward >)
