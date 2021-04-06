@@ -60,7 +60,7 @@ class MRTBLEU(FairseqCriterion):
         while num_subsample < self.k - 1:
             tokens = src_tokens.new_full((bsz, max_len + 2), pad)
             tokens[:, 0] = eos
-            # sentence_prob = src_tokens.new_full((bsz, 1), 0.0)
+            sentence_prob = src_tokens.new_full((bsz, 1), 0.0)
             # used for finished sentence
             is_decoding = src_tokens.new_ones(bsz).bool()
             end_indice = src_tokens.new_zeros(bsz)
@@ -72,8 +72,10 @@ class MRTBLEU(FairseqCriterion):
                 lprob[:, pad] = -math.inf
                 # apply softmax because probability needs to be tracked
                 lprob = torch.softmax(lprob, dim=1)
-                new_token = torch.multinomial(lprob, 1).squeeze() # bz x 1, need to squeeze later
-                # new_token = torch.argmax(lprob, 1)
+                new_token = torch.multinomial(lprob, 1).squeeze(-1) # bz x 1, need to squeeze later
+                # retrieve the probability
+                # prob = torch.gather(lprob, 1, new_token.clone())
+                # pad the already finished sentence and fix the prob
 
                 new_token = new_token.masked_fill_(
                     ~is_decoding,
@@ -190,6 +192,7 @@ class MRTBLEU(FairseqCriterion):
                 sys_token = indice[batch, j]
                 sys_token = utils.strip_pad(sys_token, self.task.target_dictionary.pad()).int()
                 sys_sent = self.task.target_dictionary.string(sys_token, "sentencepiece", escape_unk=True)
+                # print(sys_sent)
                 scorer.add_string(tgt_sent, sys_sent)
                 bleu_score = scorer.score()
                 all_score[batch, j] = bleu_score
