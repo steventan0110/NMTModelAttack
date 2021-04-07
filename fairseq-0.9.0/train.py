@@ -53,6 +53,19 @@ def main(args, init_distributed=False):
     # Build model and criterion
     model = task.build_model(args)
     print(model)
+    if args.dual_training:
+        # load auxillary model architecture, which is also a transformer
+        aux_model = task.build_model(args)
+        # freeze all parameters but src's embeddings
+        for en_dec in model.children():
+            for m in en_dec.children():
+                if isinstance(m, torch.nn.Embedding) and isinstance(en_dec, transformer.TransformerEncoder):
+                   continue
+                for p in m.parameters():
+                    p.requires_grad = False
+        for p in aux_model.parameters():
+            p.requires_grad = False
+
     criterion = task.build_criterion(args)
     if isinstance(criterion, comet_score.CometCriterion):
         # pre-downloaded estimator from COMET
@@ -97,7 +110,15 @@ def main(args, init_distributed=False):
     # Load the latest checkpoint if one is available and restore the
     # corresponding train iterator
     extra_state, epoch_itr = checkpoint_utils.load_checkpoint(args, trainer)
-
+    if args.dual_training:
+        # load auxillary model's state
+        aux_state = checkpoint_utils.load_checkpoint_to_cpu(args.auxillary_model_path)
+        aux_model.load_state_dict(
+            aux_state['model'], strict=True, args=trainer.args
+        )
+        aux_model.decoder.embed_tokens = model.encoder.embed_tokens # share the embedding
+    else:
+        aux_model = None
     # Train until the learning rate gets too small
     max_epoch = args.max_epoch or math.inf
     max_update = args.max_update or math.inf
@@ -113,7 +134,7 @@ def main(args, init_distributed=False):
         and trainer.get_num_updates() < max_update
     ):
         # train for one epoch
-        train(args, trainer, task, epoch_itr, comet_model)
+        train(args, trainer, task, epoch_itr, comet_model, aux_model)
 
         if not args.disable_validation and epoch_itr.epoch % args.validate_interval == 0:
             valid_losses = validate(args, trainer, task, epoch_itr, valid_subsets)
@@ -126,6 +147,25 @@ def main(args, init_distributed=False):
         # save checkpoint
         if epoch_itr.epoch % args.save_interval == 0:
             checkpoint_utils.save_checkpoint(args, trainer, epoch_itr, valid_losses[0])
+            if args.dual_training:
+                import os
+                # save another checkpoint for the auxillary model
+                filepath = args.auxillary_model_save_dir
+                if not os.path.exists(filepath):
+                    os.mkdir(filepath)
+                filename = os.path.join(filepath, 'checkpoint_last.pt')
+                extra_state = {"train_iterator": epoch_itr.state_dict()}
+                extra_state["train_meters"] = trainer.meters
+                checkpoint_utils.save_state(
+                    filename,
+                    trainer.args,
+                    aux_model.state_dict(),
+                    trainer.get_criterion(),
+                    trainer.optimizer,
+                    trainer.lr_scheduler,
+                    trainer.get_num_updates(),
+                    extra_state=extra_state
+                )
 
         reload_dataset = ':' in getattr(args, 'data', '')
         # sharded data: get train iterator for next epoch
@@ -135,7 +175,7 @@ def main(args, init_distributed=False):
     print('| done training in {:.1f} seconds'.format(train_meter.sum))
 
 
-def train(args, trainer, task, epoch_itr, comet_model):
+def train(args, trainer, task, epoch_itr, comet_model, aux_model):
     """Train the model for one epoch."""
     # Update parameters every N batches
     update_freq = args.update_freq[epoch_itr.epoch - 1] \
@@ -155,7 +195,7 @@ def train(args, trainer, task, epoch_itr, comet_model):
     valid_subsets = args.valid_subset.split(',')
     max_update = args.max_update or math.inf
     for i, samples in enumerate(progress, start=epoch_itr.iterations_in_epoch):
-        log_output = trainer.train_step(samples, comet_model=comet_model)
+        log_output = trainer.train_step(samples, comet_model=comet_model, aux_model=aux_model)
         if log_output is None:
             continue
 

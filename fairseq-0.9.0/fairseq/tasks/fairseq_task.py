@@ -228,7 +228,8 @@ class FairseqTask(object):
                 no_repeat_ngram_size=getattr(args, 'no_repeat_ngram_size', 0),
             )
 
-    def train_step(self, sample, model, criterion, optimizer, ignore_grad=False, comet_model=None):
+    def train_step(self, sample, model, criterion, optimizer,
+                   ignore_grad=False, comet_model=None, aux_model=None):
         """
         Do forward and backward, and return the loss as computed by *criterion*
         for the given *model* and *sample*.
@@ -250,7 +251,10 @@ class FairseqTask(object):
         """
         model.eval() if isinstance(criterion, comet_score.CometCriterion) else model.train()
         input = [model, comet_model] if isinstance(criterion, comet_score.CometCriterion) else model
-        loss, sample_size, logging_output = criterion(input, sample)
+        if aux_model:
+            loss, sample_size, logging_output = criterion(input, sample, aux_model)
+        else:
+            loss, sample_size, logging_output = criterion(input, sample)
         if ignore_grad:
             loss *= 0
         optimizer.backward(loss)

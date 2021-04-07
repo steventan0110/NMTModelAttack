@@ -306,7 +306,7 @@ class Trainer(object):
             epoch=epoch,
         )
 
-    def train_step(self, samples, comet_model=None, dummy_batch=False, raise_oom=False):
+    def train_step(self, samples, comet_model=None, aux_model=None, dummy_batch=False, raise_oom=False):
         """Do forward, backward and parameter update."""
         if self._dummy_batch is None:
             self._dummy_batch = samples[0]
@@ -351,8 +351,10 @@ class Trainer(object):
                     # forward and backward
 
                     # with torch.autograd.set_detect_anomaly(True):
+
                     loss, sample_size, logging_output = self.task.train_step(
-                        sample, self.model, self.criterion, self.optimizer, ignore_grad, comet_model=comet_model
+                        sample, self.model, self.criterion, self.optimizer, ignore_grad,
+                        comet_model=comet_model, aux_model=aux_model
                     )
 
                 if not ignore_grad:
