@@ -24,6 +24,25 @@ class DualMRT(FairseqCriterion):
         parser.add_argument('--mrt-k', default=50, type=int, metavar='D',
                             help="k value for MRT sub sample size")
 
+    def get_auxillary_sample(self, sample):
+        eos = self.task.target_dictionary.eos()
+        pad = self.task.target_dictionary.pad()
+        src_tokens = sample['net_input']['src_tokens']
+        bz = src_tokens.size(0)
+        src_len = src_tokens.size(1)
+        aux_sample = {'target': src_tokens}
+        eos_indice = (src_tokens == eos).nonzero(as_tuple=True)[1]
+        prev_output_tokens = src_tokens.roll(1, 1)
+        prev_output_tokens[:, 0] = eos
+        for i in range(bz):
+            if eos_indice[i] < src_len - 1:
+                # need to update the eos to pad
+                prev_output_tokens[i, eos_indice[i]+1] = pad
+        net_input = {'src_tokens': sample['target'], 'prev_output_tokens': prev_output_tokens}
+        aux_sample['net_input'] = net_input
+        return aux_sample
+
+
     def subsample(self, model, sample):
         model.eval()
         encoder_input = {
@@ -105,6 +124,62 @@ class DualMRT(FairseqCriterion):
         eos_indice = eos_indice.permute(1, 0) # bz X k
         return out_indice, eos_indice
 
+    def compute_Q(self, model, input, eos_indice, prev_output_token, bz, tgt_size, sample):
+        eos = self.task.target_dictionary.eos()
+        pad = self.task.target_dictionary.pad()
+
+        net_output = model(**input['net_input'])
+        lprobs = model.get_normalized_probs(net_output, log_probs=True)
+
+        custom_target = prev_output_token.roll(-1, 1)  # shift to left, along dim=1
+        custom_target[:, -1] = pad
+        eos_indice = eos_indice.reshape(-1, 1)
+        for i in range(bz * self.k):
+            if (i+1) % self.k == 0:
+                batch_num = int((i+1)/self.k - 1)
+                # gold sentence case
+                pad_sent = custom_target.new_ones(tgt_size - sample['target'].size(1)) * pad
+                custom_target[i, :] = torch.cat((sample['target'][batch_num], pad_sent))
+            else:
+                custom_target[i, eos_indice[i]] = eos
+
+        sent_prob = lprobs.gather(-1, custom_target.unsqueeze(-1)).squeeze()
+        non_pad_mask = custom_target.ne(pad)
+        sent_prob = sent_prob * non_pad_mask
+        sent_prob = sent_prob.sum(dim=-1).view(bz, self.k)
+        sent_prob = sent_prob * self.alpha
+        Q = sent_prob.exp() / sent_prob.exp().sum(1, keepdim=True)
+        return Q
+
+    def compute_bleu(self, bz, Q, sample, isZh, indice):
+        scorer = bleu.SacrebleuScorer()
+        all_score = Q.new_full((bz, self.k), 0)
+
+        # TODO: use two for loop, might be able to speed up with parallelization?
+        for batch in range(bz):
+            scorer.reset()
+            tgt_token = utils.strip_pad(sample['target'][batch, :], self.task.target_dictionary.pad()).int()
+            tgt_sent = self.task.target_dictionary.string(tgt_token, "sentencepiece", escape_unk=True)
+            if isZh:
+                tok = sacrebleu.tokenizers.TokenizerZh()
+                tgt_sent = tok(tgt_sent)
+                # print(tgt_sent)
+            for j in range(self.k):
+                scorer.reset()
+                sys_token = indice[batch, j]
+                sys_token = utils.strip_pad(sys_token, self.task.target_dictionary.pad()).int()
+                sys_sent = self.task.target_dictionary.string(sys_token, "sentencepiece", escape_unk=True)
+
+                if isZh:
+                    tok = sacrebleu.tokenizers.TokenizerZh()
+                    sys_sent = tok(sys_sent)
+                # print(sys_sent)
+                scorer.add_string(tgt_sent, sys_sent)
+                bleu_score = scorer.score()
+                all_score[batch, j] = bleu_score
+        # print()
+        return all_score
+
     def forward(self, model, sample, aux_model, reduce=True):
         """Compute the loss for the given sample.
 
@@ -113,12 +188,50 @@ class DualMRT(FairseqCriterion):
         2) the sample size, which is used as the denominator for the gradient
         3) logging outputs to display while training
         """
-
+        aux_model = aux_model.cuda()
         eos = self.task.target_dictionary.eos()
         pad = self.task.target_dictionary.pad()
 
+        # construct auxillary sample for auxillary model
+        aux_sample = self.get_auxillary_sample(sample)
 
-        raise Exception
+        with torch.no_grad():
+            indice, eos_indice = self.subsample(model, sample)
+            aux_indice, aux_eos_indice = self.subsample(aux_model, aux_sample)
+
+        model.train()
+        aux_model.train()
+        bz = indice.size(0)
+        tgt_size = indice.size(2)
+        aux_tgt_size = aux_indice.size(2)
+
+        prev_output_token = indice.reshape(-1, indice.size(2))
+        aux_prev_output_token = aux_indice.reshape(-1, aux_indice.size(2))
+
+        custom_input = sample
+        custom_input['net_input']['src_tokens'] = sample['net_input']['src_tokens'].repeat_interleave(self.k, dim=0)
+        custom_input['net_input']['src_lengths'] = sample['net_input']['src_lengths'].repeat_interleave(self.k, dim=0)
+        custom_input['net_input']['prev_output_tokens'] = prev_output_token
+
+        aux_custom_input = aux_sample
+        aux_src_token = aux_sample['net_input']['src_tokens']
+        aux_custom_input['net_input']['src_tokens'] = aux_sample['net_input']['src_tokens'].repeat_interleave(self.k, dim=0)
+        aux_len = (aux_src_token.ne(eos) & aux_src_token.ne(pad)).long().sum(dim=1)
+
+        aux_custom_input['net_input']['src_lengths'] = aux_len.repeat_interleave(self.k, dim=0)
+        aux_custom_input['net_input']['prev_output_tokens'] = aux_prev_output_token
+
+        Q = self.compute_Q(model, custom_input, eos_indice, prev_output_token, bz, tgt_size, sample)
+        aux_Q = self.compute_Q(aux_model, aux_custom_input, aux_eos_indice, aux_prev_output_token, bz, aux_tgt_size, aux_sample)
+        # print(Q, aux_Q)
+
+        score = self.compute_bleu(bz, Q, sample, False, indice)
+        aux_score = self.compute_bleu(bz, aux_Q, aux_sample, True, aux_indice)
+        # print(score, aux_score)
+
+        # minimize Qscore, maximize auxQscore
+        beta = 0.5
+        loss = beta * torch.sum(Q * score) + (1-beta) * torch.sum((1-aux_Q)*aux_score)
 
         sample_size = sample['target'].size(0) if self.args.sentence_avg else sample['ntokens']
         logging_output = {

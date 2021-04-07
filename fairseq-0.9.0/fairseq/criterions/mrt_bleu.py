@@ -140,8 +140,6 @@ class MRTBLEU(FairseqCriterion):
             indice, eos_indice = self.subsample(model, sample)
 
         model.train()
-
-
         ################################################################
         bz = indice.size(0)
         tgt_size = indice.size(2)
