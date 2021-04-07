@@ -6,6 +6,7 @@ import torch.nn.functional as F
 import torch
 import math
 import numpy as np
+import sacrebleu
 
 @register_criterion('mrt_bleu')
 class MRTBLEU(FairseqCriterion):
@@ -72,6 +73,7 @@ class MRTBLEU(FairseqCriterion):
                 lprob[:, pad] = -math.inf
                 # apply softmax because probability needs to be tracked
                 lprob = torch.softmax(lprob, dim=1)
+                # new_token = torch.argmax(lprob, 1).squeeze(-1)  # greedy search, used for checking model performance
                 new_token = torch.multinomial(lprob, 1).squeeze(-1) # bz x 1, need to squeeze later
                 # retrieve the probability
                 # prob = torch.gather(lprob, 1, new_token.clone())
@@ -174,33 +176,36 @@ class MRTBLEU(FairseqCriterion):
         sent_prob = sent_prob * self.alpha
 
         Q = sent_prob.exp() / sent_prob.exp().sum(1, keepdim=True)
-
         # Q = prob.unsqueeze(1).repeat(1, self.k, 1) - prob.unsqueeze(2) # elementwise log diff
         # Q = torch.logsumexp(Q, 2)
 
         # convert indices into sentence and compute score using sacrebleu
         scorer = bleu.SacrebleuScorer()
         all_score = Q.new_full((bz, self.k), 0)
+
         # TODO: use two for loop, might be able to speed up with parallelization?
         for batch in range(bz):
             scorer.reset()
             tgt_token = utils.strip_pad(sample['target'][batch, :], self.task.target_dictionary.pad()).int()
             tgt_sent = self.task.target_dictionary.string(tgt_token, "sentencepiece", escape_unk=True)
-            # print(tgt_sent)
+            if self.task.args.target_lang == 'zh':
+                tok = sacrebleu.tokenizers.TokenizerZh()
+                tgt_sent = tok(tgt_sent)
+                # print(tgt_sent)
             for j in range(self.k):
                 scorer.reset()
                 sys_token = indice[batch, j]
                 sys_token = utils.strip_pad(sys_token, self.task.target_dictionary.pad()).int()
                 sys_sent = self.task.target_dictionary.string(sys_token, "sentencepiece", escape_unk=True)
-                # print(sys_sent)
+                if self.task.args.target_lang == 'zh':
+                    tok = sacrebleu.tokenizers.TokenizerZh()
+                    sys_sent = tok(sys_sent)
                 scorer.add_string(tgt_sent, sys_sent)
                 bleu_score = scorer.score()
                 all_score[batch, j] = bleu_score
             # print()
-
+        # print(all_score)
         # compute risk and perform backprop
-
-
         loss = torch.sum((1-Q) * all_score) # loss = - risk
 
         #########################################################
