@@ -230,7 +230,7 @@ class DualMRT(FairseqCriterion):
         # print(score, aux_score)
 
         # minimize Qscore, maximize auxQscore
-        beta = 0.5
+        beta = 0.8
         loss = beta * torch.sum(Q * score) + (1-beta) * torch.sum((1-aux_Q)*aux_score)
 
         sample_size = sample['target'].size(0) if self.args.sentence_avg else sample['ntokens']

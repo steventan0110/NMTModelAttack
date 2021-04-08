@@ -153,7 +153,8 @@ def main(args, init_distributed=False):
                 filepath = args.auxillary_model_save_dir
                 if not os.path.exists(filepath):
                     os.mkdir(filepath)
-                filename = os.path.join(filepath, 'checkpoint_last.pt')
+                temp = 'checkpoint' + str(epoch_itr.epoch) + '.pt'
+                filename = os.path.join(filepath, temp)
                 extra_state = {"train_iterator": epoch_itr.state_dict()}
                 extra_state["train_meters"] = trainer.meters
                 checkpoint_utils.save_state(
