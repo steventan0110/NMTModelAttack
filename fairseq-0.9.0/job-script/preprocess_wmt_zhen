@@ -2,15 +2,23 @@
 
 source /home/steven/Documents/GITHUB/NMTModelAttack/ma/bin/activate
 ROOT=/home/steven/Documents/GITHUB/NMTModelAttack
-DATA=$ROOT/dataset/debug
+DATA=$ROOT/dataset/adv
 Pretrain_Model=/home/steven/Documents/GITHUB/NMTModelAttack/pretrain_models/xlmr.base
+
+#fairseq-preprocess \
+#    --source-lang zh --target-lang en \
+#    --joined-dictionary \
+#    --srcdict $ROOT/data-bin/20k/dict.zh.txt \
+#      --trainpref $DATA/train.bpe \
+#      --validpref $DATA/dev.bpe \
+#      --testpref $DATA/test.bpe \
+#      --destdir $ROOT/data-bin/ \
+#    --workers 8
 
 fairseq-preprocess \
     --source-lang zh --target-lang en \
     --joined-dictionary \
-    --srcdict $Pretrain_Model/xlmr_vocab.txt \
-      --trainpref $DATA/train.bpe \
-      --validpref $DATA/dev.bpe \
-      --testpref $DATA/test.bpe \
-      --destdir $ROOT/data-bin/debug \
+    --srcdict $ROOT/data-bin/20k/dict.zh.txt \
+      --testpref $DATA/test-baseline.bpe,$DATA/test-adv10.bpe,$DATA/test-adv15.bpe,$DATA/test-adv20.bpe,$DATA/test-adv30.bpe \
+      --destdir $ROOT/data-bin/adv \
     --workers 8

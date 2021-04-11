@@ -2,13 +2,23 @@
 
 source /home/steven/Documents/GITHUB/NMTModelAttack/ma/bin/activate
 ROOT=/home/steven/Documents/GITHUB/NMTModelAttack
-DATA=$ROOT/dataset/debug
-Pretrain_Model=/home/steven/Documents/GITHUB/NMTModelAttack/pretrain_models/xlmr.base
 
-fairseq-preprocess \
-    --source-lang zh --target-lang en \
-    --joined-dictionary \
-      --trainpref $DATA/train.bpe \
-      --validpref $DATA/dev.bpe \
-      --testpref $DATA/test.bpe \
-      --destdir $ROOT/data-bin/debug \
+
+for testfile in test test1 test2 test3 test4
+do
+  OUT=$ROOT/output/adv/$testfile.out
+  fairseq-generate \
+  /home/steven/Documents/GITHUB/NMTModelAttack/data-bin/adv \
+  --task translation \
+  --gen-subset $testfile \
+  --path /home/steven/Documents/GITHUB/NMTModelAttack/checkpoints/zh-en-noshare/checkpoint_best.pt \
+  --batch-size 32 \
+  --lenpen 1.0 \
+  --remove-bpe sentencepiece \
+  --sacrebleu \
+  -s zh \
+  -t en \
+  --beam 5 > $OUT
+done
+
+
