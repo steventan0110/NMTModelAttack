@@ -4,7 +4,7 @@ source /home/steven/Documents/GITHUB/NMTModelAttack/ma/bin/activate
 ROOT=/home/steven/Documents/GITHUB/NMTModelAttack
 
 
-for percent in 20 15 10 5 1
+for percent in 30 20
 do
   OUT=$ROOT/output/adv/adv-c40-p$percent.out
   fairseq-generate \
