@@ -95,7 +95,7 @@ def main(args):
         scorer = bleu.Scorer(tgt_dict.pad(), tgt_dict.eos(), tgt_dict.unk())
     num_sentences = 0
     has_target = True
-    # adv_output = open('/home/steven/Documents/GITHUB/NMTModelAttack/output/adv/adv2.out', 'w')
+    adv_output = open('/home/steven/Documents/GITHUB/NMTModelAttack/dataset/adv-train/c40p30.out', 'w')
     with progress_bar.build_progress_bar(args, itr) as t:
         wps_meter = TimeMeter()
         for sample in t:
@@ -128,33 +128,29 @@ def main(args):
                         else:
                             if random.random() < prob:
                                 # perturbe the word
-                                src_token[i, j] = adv_sample_tokens[i, j, 1]
+                                temp[i, j] = adv_sample_tokens[i, j, 1]
                 ########################
-                sample['net_input']['src_tokens'] = temp
+                # sample['net_input']['src_tokens'] = temp
 
                 ##################### ADV Generation
                 # _, adv_sample_tokens = adv_sample_prob.topk(1, dim=2)
                 # for k in range(1):
                 #     adv_sample_token = adv_sample_tokens[:, :, k]
                 #     row, col = adv_sample_token.size(0), adv_sample_token.size(1)
-                #     for i in range(row):
-                #         for j in range(col):
-                #             if pad_mask[i, j]:
-                #                 adv_sample_token[i, j] = src_dict.pad()
-                #     for i in range(src_token.size(0)):
-                #         token = utils.strip_pad(src_token[i, :], src_dict.pad())
-                #         src_str = src_dict.string(token, args.remove_bpe)
-                #         # print(src_token[i, :])
-                #         adv_token = utils.strip_pad(adv_sample_token[i, :], src_dict.pad())
-                #         # print(token)
-                #         # print(adv_token)
-                #         # raise Exception
-                #         adv_str = src_dict.string(adv_token, args.remove_bpe)
-                #         if adv_str != src_str:
-                #             # print(src_str, file=adv_output)
-                #             print(adv_str, file=adv_output)
+                # for i in range(row):
+                #     for j in range(col):
+                #         if pad_mask[i, j]:
+                #             adv_sample_token[i, j] = src_dict.pad()
+                for i in range(row):
+                    token = utils.strip_pad(src_token[i, :], src_dict.pad())
+                    src_str = src_dict.string(token, args.remove_bpe)
 
+                    adv_token = utils.strip_pad(temp[i, :], src_dict.pad())
+                    adv_str = src_dict.string(adv_token, args.remove_bpe)
+                    # print(adv_str, file=adv_output)
 
+                    print(adv_str, file=adv_output)
+            continue
 
             prefix_tokens = None
             if args.prefix_size > 0:
