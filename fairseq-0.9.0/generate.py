@@ -27,6 +27,12 @@ def main(args):
     print(args)
 
     use_cuda = torch.cuda.is_available() and not args.cpu
+    if args.adv_gen:
+        # load zh-en model and use its src side embedding to generate adversarial samples
+        aux_state = checkpoint_utils.load_checkpoint_to_cpu(args.adv_model_path)
+        adv_embed = aux_state['model']['encoder.embed_tokens.weight']
+        if use_cuda:
+            adv_embed = adv_embed.cuda()
 
     # Load dataset splits
     task = tasks.setup_task(args)
@@ -89,12 +95,65 @@ def main(args):
         scorer = bleu.Scorer(tgt_dict.pad(), tgt_dict.eos(), tgt_dict.unk())
     num_sentences = 0
     has_target = True
+    adv_output = open('/home/steven/Documents/GITHUB/NMTModelAttack/output/adv/adv2.out', 'w')
     with progress_bar.build_progress_bar(args, itr) as t:
         wps_meter = TimeMeter()
         for sample in t:
             sample = utils.move_to_cuda(sample) if use_cuda else sample
             if 'net_input' not in sample:
                 continue
+
+            if args.adv_gen:
+                import random
+                random.seed(41)
+                src_token = sample['net_input']['src_tokens']
+                pad_mask = src_token.eq(src_dict.pad())
+
+                # print(src_str)
+                # retrieve the updated embedding
+                embed = adv_embed[src_token]
+                model_embed = model.encoder.embed_tokens.weight
+                adv_sample_prob = embed @ torch.transpose(model_embed, 0, 1)
+
+                ##########################
+                prob = args.adv_percent * 0.01
+                _, adv_sample_tokens = adv_sample_prob.topk(2, dim=2)
+                temp = src_token
+                row, col = src_token.size(0), src_token.size(1)
+                for i in range(row):
+                    for j in range(col):
+                        if pad_mask[i, j]:
+                            continue
+                        else:
+                            if random.random() < prob:
+                                # perturbe the word
+                                src_token[i, j] = adv_sample_tokens[i, j, 1]
+                ########################
+                sample['net_input']['src_tokens'] = temp
+
+                ##################### ADV Generation
+                # _, adv_sample_tokens = adv_sample_prob.topk(1, dim=2)
+                # for k in range(1):
+                #     adv_sample_token = adv_sample_tokens[:, :, k]
+                #     row, col = adv_sample_token.size(0), adv_sample_token.size(1)
+                #     for i in range(row):
+                #         for j in range(col):
+                #             if pad_mask[i, j]:
+                #                 adv_sample_token[i, j] = src_dict.pad()
+                #     for i in range(src_token.size(0)):
+                #         token = utils.strip_pad(src_token[i, :], src_dict.pad())
+                #         src_str = src_dict.string(token, args.remove_bpe)
+                #         # print(src_token[i, :])
+                #         adv_token = utils.strip_pad(adv_sample_token[i, :], src_dict.pad())
+                #         # print(token)
+                #         # print(adv_token)
+                #         # raise Exception
+                #         adv_str = src_dict.string(adv_token, args.remove_bpe)
+                #         if adv_str != src_str:
+                #             # print(src_str, file=adv_output)
+                #             print(adv_str, file=adv_output)
+
+
 
             prefix_tokens = None
             if args.prefix_size > 0:

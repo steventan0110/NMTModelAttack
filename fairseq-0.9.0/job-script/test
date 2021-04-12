@@ -4,15 +4,18 @@ source /home/steven/Documents/GITHUB/NMTModelAttack/ma/bin/activate
 ROOT=/home/steven/Documents/GITHUB/NMTModelAttack
 
 
-for testfile in test test1 test2 test3 test4
+for percent in 20 15 10 5 1
 do
-  OUT=$ROOT/output/adv/$testfile.out
+  OUT=$ROOT/output/adv/adv-c40-p$percent.out
   fairseq-generate \
-  /home/steven/Documents/GITHUB/NMTModelAttack/data-bin/adv \
+  /home/steven/Documents/GITHUB/NMTModelAttack/data-bin/20k \
   --task translation \
-  --gen-subset $testfile \
+  --gen-subset test \
   --path /home/steven/Documents/GITHUB/NMTModelAttack/checkpoints/zh-en-noshare/checkpoint_best.pt \
   --batch-size 32 \
+  --adv-gen \
+  --adv-model-path /home/steven/Documents/GITHUB/NMTModelAttack/checkpoints/dual-mrt/zh-en/checkpoint40.pt \
+  --adv-percent $percent \
   --lenpen 1.0 \
   --remove-bpe sentencepiece \
   --sacrebleu \
