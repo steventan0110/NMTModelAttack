@@ -95,7 +95,7 @@ def main(args):
         scorer = bleu.Scorer(tgt_dict.pad(), tgt_dict.eos(), tgt_dict.unk())
     num_sentences = 0
     has_target = True
-    adv_output = open('/home/steven/Documents/GITHUB/NMTModelAttack/output/adv/adv2.out', 'w')
+    # adv_output = open('/home/steven/Documents/GITHUB/NMTModelAttack/output/adv/adv2.out', 'w')
     with progress_bar.build_progress_bar(args, itr) as t:
         wps_meter = TimeMeter()
         for sample in t:
@@ -113,7 +113,7 @@ def main(args):
                 # retrieve the updated embedding
                 embed = adv_embed[src_token]
                 model_embed = model.encoder.embed_tokens.weight
-                adv_sample_prob = embed @ torch.transpose(model_embed, 0, 1)
+                adv_sample_prob = embed  @ torch.transpose(model_embed, 0, 1)
 
                 ##########################
                 prob = args.adv_percent * 0.01
@@ -121,7 +121,7 @@ def main(args):
                 temp = src_token
                 row, col = src_token.size(0), src_token.size(1)
                 for i in range(row):
-                    for j in range(col):
+                    for j in range(col-1):
                         if pad_mask[i, j]:
                             continue
                         else:
