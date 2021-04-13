@@ -44,6 +44,8 @@ def get_generation_parser(interactive=False, default_task='translation'):
                         help='path to the auxillary model to retrieve embedding')
     parser.add_argument('--adv-percent', type=int, default=15,
                         help='controls the percent of src tokens being replaced by adversarial samples')
+    parser.add_argument('--src-file', metavar='DIR')
+    parser.add_argument('--tgt-file', metavar='DIR')
     add_dataset_args(parser, gen=True)
     add_generation_args(parser)
     if interactive:

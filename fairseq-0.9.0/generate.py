@@ -95,7 +95,10 @@ def main(args):
         scorer = bleu.Scorer(tgt_dict.pad(), tgt_dict.eos(), tgt_dict.unk())
     num_sentences = 0
     has_target = True
-    adv_output = open('/home/steven/Documents/GITHUB/NMTModelAttack/dataset/adv-train/c40p30.out', 'w')
+
+    if args.adv_gen:
+        src_file = open(args.src_file, 'w')
+        tgt_file = open(args.tgt_file, 'w')
     with progress_bar.build_progress_bar(args, itr) as t:
         wps_meter = TimeMeter()
         for sample in t:
@@ -132,24 +135,17 @@ def main(args):
                 ########################
                 # sample['net_input']['src_tokens'] = temp
 
-                ##################### ADV Generation
-                # _, adv_sample_tokens = adv_sample_prob.topk(1, dim=2)
-                # for k in range(1):
-                #     adv_sample_token = adv_sample_tokens[:, :, k]
-                #     row, col = adv_sample_token.size(0), adv_sample_token.size(1)
-                # for i in range(row):
-                #     for j in range(col):
-                #         if pad_mask[i, j]:
-                #             adv_sample_token[i, j] = src_dict.pad()
+                target_token = sample['target']
                 for i in range(row):
-                    token = utils.strip_pad(src_token[i, :], src_dict.pad())
-                    src_str = src_dict.string(token, args.remove_bpe)
+                    token = utils.strip_pad(target_token[i, :], tgt_dict.pad())
+                    tgt_str = tgt_dict.string(token, args.remove_bpe)
 
                     adv_token = utils.strip_pad(temp[i, :], src_dict.pad())
                     adv_str = src_dict.string(adv_token, args.remove_bpe)
                     # print(adv_str, file=adv_output)
+                    print(tgt_str, file=tgt_file)
+                    print(adv_str, file=src_file)
 
-                    print(adv_str, file=adv_output)
             continue
 
             prefix_tokens = None
