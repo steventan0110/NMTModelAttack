@@ -143,7 +143,7 @@ class DualMRT(FairseqCriterion):
                 custom_target[i, :] = torch.cat((sample['target'][batch_num], pad_sent))
             else:
                 custom_target[i, eos_indice[i]] = eos
-        print(custom_target)
+
         sent_prob = lprobs.gather(-1, custom_target.unsqueeze(-1)).squeeze()
         non_pad_mask = custom_target.ne(pad)
         sent_prob = sent_prob * non_pad_mask

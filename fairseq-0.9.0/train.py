@@ -69,7 +69,7 @@ def main(args, init_distributed=False):
     criterion = task.build_criterion(args)
     if isinstance(criterion, comet_score.CometCriterion) or isinstance(criterion, dual_comet.DualCOMET):
         # pre-downloaded estimator from COMET
-        comet_route = "/home/steven/.cache/torch/unbabel_comet/wmt-large-da-estimator-1719/_ckpt_epoch_1.ckpt"
+        comet_route = args.comet_route
         comet_model = load_checkpoint(comet_route)
         # change parameters that requires gradient, update optimizer
         for en_dec in model.children():

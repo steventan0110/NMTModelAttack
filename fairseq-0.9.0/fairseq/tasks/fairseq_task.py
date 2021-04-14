@@ -5,7 +5,7 @@
 
 import numpy as np
 import torch
-from fairseq.criterions import comet_score
+from fairseq.criterions import comet_score, dual_comet
 from fairseq.models import transformer
 from fairseq import tokenizer
 from fairseq.data import (
@@ -251,7 +251,11 @@ class FairseqTask(object):
         """
         model.eval() if isinstance(criterion, comet_score.CometCriterion) else model.train()
         input = [model, comet_model] if isinstance(criterion, comet_score.CometCriterion) else model
-        if aux_model:
+        if isinstance(criterion, dual_comet.DualCOMET):
+            # dual COMET training
+            loss, sample_size, logging_output = criterion(input, sample, aux_model, comet_model)
+        elif aux_model:
+            # dual BLEU training
             loss, sample_size, logging_output = criterion(input, sample, aux_model)
         else:
             loss, sample_size, logging_output = criterion(input, sample)

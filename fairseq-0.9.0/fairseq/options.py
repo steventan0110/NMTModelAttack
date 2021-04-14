@@ -20,6 +20,8 @@ def get_preprocessing_parser(default_task='translation'):
 
 def get_training_parser(default_task='translation'):
     parser = get_parser('Trainer', default_task)
+    parser.add_argument('--comet-route', metavar='DIR', default=None,
+                        help='path to the comet model saved on local')
     parser.add_argument('--dual-model-pretrain', action="store_true",
                        help='enable dual model training pretrain')
     parser.add_argument('--dual-training', action="store_true",

@@ -43,7 +43,6 @@ class DualCOMET(FairseqCriterion):
         aux_sample['net_input'] = net_input
         return aux_sample
 
-
     def subsample(self, model, sample):
         model.eval()
         encoder_input = {
@@ -152,35 +151,33 @@ class DualCOMET(FairseqCriterion):
         Q = sent_prob.exp() / sent_prob.exp().sum(1, keepdim=True)
         return Q
 
-    def compute_bleu(self, bz, Q, sample, isZh, indice):
-        scorer = bleu.SacrebleuScorer()
+    def compute_comet(self, bz, Q, sample, isZh, indice, comet_model):
         all_score = Q.new_full((bz, self.k), 0)
-
-        # TODO: use two for loop, might be able to speed up with parallelization?
+        data = []
         for batch in range(bz):
-            scorer.reset()
+            src_token = utils.strip_pad(sample['net_input']['src_tokens'][batch, :],
+                                        self.task.source_dictionary.pad()).int()
+            src_sent = self.task.source_dictionary.string(src_token, "sentencepiece", escape_unk=True)
             tgt_token = utils.strip_pad(sample['target'][batch, :], self.task.target_dictionary.pad()).int()
             tgt_sent = self.task.target_dictionary.string(tgt_token, "sentencepiece", escape_unk=True)
-            if isZh:
-                tok = sacrebleu.tokenizers.TokenizerZh()
-                tgt_sent = tok(tgt_sent)
-                # print(tgt_sent)
+
             for j in range(self.k):
-                scorer.reset()
                 sys_token = indice[batch, j]
                 sys_token = utils.strip_pad(sys_token, self.task.target_dictionary.pad()).int()
                 sys_sent = self.task.target_dictionary.string(sys_token, "sentencepiece", escape_unk=True)
-
-                if isZh:
-                    tok = sacrebleu.tokenizers.TokenizerZh()
-                    sys_sent = tok(sys_sent)
-                scorer.add_string(tgt_sent, sys_sent)
-                bleu_score = scorer.score()
-                all_score[batch, j] = bleu_score
-        # print()
+                temp = {
+                    "src": src_sent,
+                    "mt":  sys_sent,
+                    "ref": tgt_sent,
+                }
+                data.append(temp)
+        score = comet_model.predict(data, cuda=True, show_progress=False)
+        score = torch.tensor(score[1]).view(bz, -1)
+        all_score[:, :] = score * 10 # make it higher weight
         return all_score
 
-    def forward(self, model, sample, aux_model, reduce=True):
+
+    def forward(self, model, sample, aux_model, comet_model, reduce=True):
         """Compute the loss for the given sample.
 
         Returns a tuple with three elements:
@@ -188,23 +185,9 @@ class DualCOMET(FairseqCriterion):
         2) the sample size, which is used as the denominator for the gradient
         3) logging outputs to display while training
         """
-        # # test generator
-        # generator = SequenceGenerator(self.task.target_dictionary,
-        #                               sampling=False)
-        # with torch.no_grad():
-        #     greturn = generator.generate([model], sample)
-        #
-        # for item in greturn[0]:
-        #     token = item['tokens']
-        #     print(token)
-        #     sys_token = utils.strip_pad(token, self.task.target_dictionary.pad()).int()
-        #     sys_sent = self.task.target_dictionary.string(sys_token, "sentencepiece", escape_unk=True)
-        #     print(sys_sent)
-
         aux_model = aux_model.cuda()
         eos = self.task.target_dictionary.eos()
         pad = self.task.target_dictionary.pad()
-
         # construct auxillary sample for auxillary model
         aux_sample = self.get_auxillary_sample(sample)
 
@@ -238,14 +221,11 @@ class DualCOMET(FairseqCriterion):
         aux_Q = self.compute_Q(aux_model, aux_custom_input, aux_eos_indice, aux_prev_output_token, bz, aux_tgt_size, aux_sample)
         # print(Q, aux_Q)
 
-        score = self.compute_bleu(bz, Q, sample, False, indice)
-        aux_score = self.compute_bleu(bz, aux_Q, aux_sample, True, aux_indice)
-        # print(score, aux_score)
-
+        score = self.compute_comet(bz, Q, sample, False, indice, comet_model)
+        aux_score = self.compute_comet(bz, aux_Q, aux_sample, True, aux_indice, comet_model)
         # minimize Qscore, maximize auxQscore
         beta = 0.8
         loss = beta * torch.sum(Q * score) + (1-beta) * torch.sum((1-aux_Q)*aux_score)
-
         sample_size = sample['target'].size(0) if self.args.sentence_avg else sample['ntokens']
         logging_output = {
             'loss': utils.item(loss.data) if reduce else loss.data,
