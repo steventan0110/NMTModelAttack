@@ -18,7 +18,7 @@ from fairseq import checkpoint_utils, distributed_utils, options, progress_bar, 
 from fairseq.data import iterators
 from fairseq.trainer import Trainer
 from fairseq.meters import AverageMeter, StopwatchMeter
-from fairseq.criterions import comet_score
+from fairseq.criterions import comet_score, dual_comet
 from fairseq.models import transformer
 
 from comet.models import download_model, load_checkpoint
@@ -67,7 +67,7 @@ def main(args, init_distributed=False):
             p.requires_grad = False
 
     criterion = task.build_criterion(args)
-    if isinstance(criterion, comet_score.CometCriterion):
+    if isinstance(criterion, comet_score.CometCriterion) or isinstance(criterion, dual_comet.DualCOMET):
         # pre-downloaded estimator from COMET
         comet_route = "/home/steven/.cache/torch/unbabel_comet/wmt-large-da-estimator-1719/_ckpt_epoch_1.ckpt"
         comet_model = load_checkpoint(comet_route)

@@ -56,11 +56,12 @@ class CometCriterion(FairseqCriterion):
         results = []
         for i in range(bsz):
             cur_arr = tokens[i, 1:].detach().cpu().numpy()
-            end_idx = np.where(cur_arr == eos)[0][0]
-            temp = torch.tensor(cur_arr[0:end_idx+1])
-            print(temp)
+            end_idx = np.where(cur_arr == eos)[0]
+            print(end_idx)
+            # temp = torch.tensor(cur_arr[0:end_idx+1])
+            # print(temp)
             print(self.task.source_dictionary.string(src_tokens[i, :], "sentencepiece", escape_unk=True))
-            print(self.task.target_dictionary.string(temp, "sentencepiece", escape_unk=True))
+            print(self.task.target_dictionary.string(cur_arr, "sentencepiece", escape_unk=True))
             results.append(temp)
         return results
 

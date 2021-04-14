@@ -9,8 +9,8 @@ import math
 import numpy as np
 import sacrebleu
 
-@register_criterion('dual_mrt')
-class DualMRT(FairseqCriterion):
+@register_criterion('dual_comet')
+class DualCOMET(FairseqCriterion):
     def __init__(self, args, task):
         super().__init__(args, task)
         self.alpha = args.mrt_alpha
@@ -143,7 +143,7 @@ class DualMRT(FairseqCriterion):
                 custom_target[i, :] = torch.cat((sample['target'][batch_num], pad_sent))
             else:
                 custom_target[i, eos_indice[i]] = eos
-        print(custom_target)
+
         sent_prob = lprobs.gather(-1, custom_target.unsqueeze(-1)).squeeze()
         non_pad_mask = custom_target.ne(pad)
         sent_prob = sent_prob * non_pad_mask
@@ -199,6 +199,7 @@ class DualMRT(FairseqCriterion):
         #     print(token)
         #     sys_token = utils.strip_pad(token, self.task.target_dictionary.pad()).int()
         #     sys_sent = self.task.target_dictionary.string(sys_token, "sentencepiece", escape_unk=True)
+        #     print(sys_sent)
 
         aux_model = aux_model.cuda()
         eos = self.task.target_dictionary.eos()
@@ -244,6 +245,7 @@ class DualMRT(FairseqCriterion):
         # minimize Qscore, maximize auxQscore
         beta = 0.8
         loss = beta * torch.sum(Q * score) + (1-beta) * torch.sum((1-aux_Q)*aux_score)
+
         sample_size = sample['target'].size(0) if self.args.sentence_avg else sample['ntokens']
         logging_output = {
             'loss': utils.item(loss.data) if reduce else loss.data,
