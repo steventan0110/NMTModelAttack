@@ -146,7 +146,7 @@ def main(args):
                     print(tgt_str, file=tgt_file)
                     print(adv_str, file=src_file)
 
-            continue
+                continue
 
             prefix_tokens = None
             if args.prefix_size > 0:
