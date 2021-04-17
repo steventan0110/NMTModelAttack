@@ -42,6 +42,8 @@ def get_generation_parser(interactive=False, default_task='translation'):
     parser = get_parser('Generation', default_task)
     parser.add_argument('--adv-gen', action='store_true',
                         help='generate adversarial samples from baseline and updateed embedding')
+    parser.add_argument('--adv-test', action='store_true',
+                        help='test the checkpoint on perturbed sentences')
     parser.add_argument('--adv-model-path', metavar='DIR', default='checkpoints',
                         help='path to the auxillary model to retrieve embedding')
     parser.add_argument('--adv-percent', type=int, default=15,

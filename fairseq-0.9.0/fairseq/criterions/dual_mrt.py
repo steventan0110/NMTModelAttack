@@ -164,19 +164,20 @@ class DualMRT(FairseqCriterion):
             if isZh:
                 tok = sacrebleu.tokenizers.TokenizerZh()
                 tgt_sent = tok(tgt_sent)
-                # print(tgt_sent)
+
             for j in range(self.k):
                 scorer.reset()
                 sys_token = indice[batch, j]
                 sys_token = utils.strip_pad(sys_token, self.task.target_dictionary.pad()).int()
                 sys_sent = self.task.target_dictionary.string(sys_token, "sentencepiece", escape_unk=True)
-
+                # print(sys_token, sys_sent)
                 if isZh:
                     tok = sacrebleu.tokenizers.TokenizerZh()
                     sys_sent = tok(sys_sent)
                 scorer.add_string(tgt_sent, sys_sent)
                 bleu_score = scorer.score()
                 all_score[batch, j] = bleu_score
+
         # print()
         return all_score
 

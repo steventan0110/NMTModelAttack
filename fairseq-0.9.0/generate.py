@@ -96,7 +96,7 @@ def main(args):
     num_sentences = 0
     has_target = True
 
-    if args.adv_gen:
+    if args.adv_gen and not args.adv_test:
         src_file = open(args.src_file, 'w')
         tgt_file = open(args.tgt_file, 'w')
     with progress_bar.build_progress_bar(args, itr) as t:
@@ -133,20 +133,21 @@ def main(args):
                                 # perturbe the word
                                 temp[i, j] = adv_sample_tokens[i, j, 1]
                 ########################
-                # sample['net_input']['src_tokens'] = temp
+                if args.adv_test:
+                    sample['net_input']['src_tokens'] = temp
+                else:
+                    target_token = sample['target']
+                    for i in range(row):
+                        token = utils.strip_pad(target_token[i, :], tgt_dict.pad())
+                        tgt_str = tgt_dict.string(token, args.remove_bpe)
 
-                target_token = sample['target']
-                for i in range(row):
-                    token = utils.strip_pad(target_token[i, :], tgt_dict.pad())
-                    tgt_str = tgt_dict.string(token, args.remove_bpe)
+                        adv_token = utils.strip_pad(temp[i, :], src_dict.pad())
+                        adv_str = src_dict.string(adv_token, args.remove_bpe)
+                        # print(adv_str, file=adv_output)
+                        print(tgt_str, file=tgt_file)
+                        print(adv_str, file=src_file)
 
-                    adv_token = utils.strip_pad(temp[i, :], src_dict.pad())
-                    adv_str = src_dict.string(adv_token, args.remove_bpe)
-                    # print(adv_str, file=adv_output)
-                    print(tgt_str, file=tgt_file)
-                    print(adv_str, file=src_file)
-
-                continue
+                    continue
 
             prefix_tokens = None
             if args.prefix_size > 0:
