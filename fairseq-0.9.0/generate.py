@@ -123,8 +123,8 @@ def main(args):
 
                 ##########################
                 prob = args.adv_percent * 0.01
-                _, adv_sample_tokens = adv_sample_prob.topk(2, dim=2)
-
+                # _, adv_sample_tokens = adv_sample_prob.topk(2, dim=2)
+                adv_sample_tokens = adv_sample_prob.argmax(dim=2)
                 temp = src_token
                 row, col = src_token.size(0), src_token.size(1)
                 for i in range(row):
@@ -134,7 +134,7 @@ def main(args):
                         else:
                             if random.random() < prob:
                                 # perturbe the word
-                                temp[i, j] = adv_sample_tokens[i, j, 1]
+                                temp[i, j] = adv_sample_tokens[i, j]
                 ########################
                 if args.adv_test:
                     sample['net_input']['src_tokens'] = temp
