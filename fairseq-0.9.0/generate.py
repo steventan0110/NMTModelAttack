@@ -101,6 +101,9 @@ def main(args):
         tgt_file = open(args.tgt_file, 'w')
     with progress_bar.build_progress_bar(args, itr) as t:
         wps_meter = TimeMeter()
+        if args.adv_gen:
+            model_embed = model.encoder.embed_tokens.weight
+            model_embed = model_embed / model_embed.norm(dim=1, keepdim=True)
         for sample in t:
             sample = utils.move_to_cuda(sample) if use_cuda else sample
             if 'net_input' not in sample:
@@ -115,7 +118,7 @@ def main(args):
                 # print(src_str)
                 # retrieve the updated embedding
                 embed = adv_embed[src_token]
-                model_embed = model.encoder.embed_tokens.weight
+                embed = embed / embed.norm(dim=2, keepdim=True)
                 adv_sample_prob = embed  @ torch.transpose(model_embed, 0, 1)
 
                 ##########################
