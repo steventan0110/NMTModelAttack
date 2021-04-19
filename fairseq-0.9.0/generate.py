@@ -104,6 +104,7 @@ def main(args):
         if args.adv_gen:
             model_embed = model.encoder.embed_tokens.weight
             model_embed = model_embed / model_embed.norm(dim=1, keepdim=True)
+
         for sample in t:
             sample = utils.move_to_cuda(sample) if use_cuda else sample
             if 'net_input' not in sample:
@@ -123,8 +124,8 @@ def main(args):
 
                 ##########################
                 prob = args.adv_percent * 0.01
-                # _, adv_sample_tokens = adv_sample_prob.topk(2, dim=2)
-                adv_sample_tokens = adv_sample_prob.argmax(dim=2)
+                _, adv_sample_tokens = adv_sample_prob.topk(3, dim=2)
+                # adv_sample_tokens = adv_sample_prob.argmax(dim=2)
                 temp = src_token
                 row, col = src_token.size(0), src_token.size(1)
                 for i in range(row):
@@ -132,9 +133,12 @@ def main(args):
                         if pad_mask[i, j]:
                             continue
                         else:
+                            # if adv_sample_tokens[i, j, 1] != src_token[i, j]:
+                            #     print('different from itself')
                             if random.random() < prob:
                                 # perturbe the word
-                                temp[i, j] = adv_sample_tokens[i, j]
+                                temp[i, j] = adv_sample_tokens[i, j, 2]
+
                 ########################
                 if args.adv_test:
                     sample['net_input']['src_tokens'] = temp

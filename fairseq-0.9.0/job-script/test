@@ -6,7 +6,7 @@ ROOT=/home/steven/Documents/GITHUB/NMTModelAttack
 
 for percent in 40 30 20
 do
-  OUT=$ROOT/output/adv/adv-c30-p$percent.out
+  OUT=$ROOT/output/adv/adv-comet-c30-p$percent.out
   fairseq-generate \
   /home/steven/Documents/GITHUB/NMTModelAttack/data-bin/20k \
   --task translation \
@@ -14,7 +14,7 @@ do
   --path /home/steven/Documents/GITHUB/NMTModelAttack/checkpoints/zh-en-noshare/checkpoint_best.pt \
   --batch-size 32 \
   --adv-gen --adv-test \
-  --adv-model-path /home/steven/Documents/GITHUB/NMTModelAttack/checkpoints/dual-mrt/zh-en/checkpoint30.pt \
+  --adv-model-path /home/steven/Documents/GITHUB/NMTModelAttack/checkpoints/dual-comet/zh-en/checkpoint30.pt \
   --adv-percent $percent \
   --lenpen 1.0 \
   --remove-bpe sentencepiece \
