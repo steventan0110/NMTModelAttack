@@ -128,6 +128,13 @@ def main(args):
                 # adv_sample_tokens = adv_sample_prob.argmax(dim=2)
                 temp = src_token
                 row, col = src_token.size(0), src_token.size(1)
+                # for i in range(row):
+                #     print(src_token[i, :])
+                #     adv_token = src_token[i, 0:1]
+                #     print(src_dict.string(adv_token, args.remove_bpe))
+                #     print(adv_sample_tokens[i, :, 2])
+                #     print(src_dict.string(adv_sample_tokens[i, 0:1, 2], args.remove_bpe))
+
                 for i in range(row):
                     for j in range(col-1):
                         if pad_mask[i, j]:
