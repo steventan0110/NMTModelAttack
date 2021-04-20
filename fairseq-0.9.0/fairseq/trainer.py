@@ -352,6 +352,10 @@ class Trainer(object):
 
                     # with torch.autograd.set_detect_anomaly(True):
 
+                    if self.args.on_the_fly:
+                        # print(self.model.encoder.embed_tokens.weight[0:5, 0:5])
+                        embed_copy = self.model.encoder.embed_tokens.weight.detach().clone()
+                        reserved_src_tokens = sample['net_input']['src_tokens']
                     loss, sample_size, logging_output = self.task.train_step(
                         sample, self.model, self.criterion, self.optimizer, ignore_grad,
                         comet_model=comet_model, aux_model=aux_model
@@ -466,6 +470,41 @@ class Trainer(object):
 
             # task specific update per step
             self.task.update_step(self._num_updates)
+            if self.args.on_the_fly:
+                import random
+                random.seed(41)
+                src_token = reserved_src_tokens
+                target_token = sample['target']
+                pad_mask = src_token.eq(self.task.src_dict.pad())
+                norm_embed_copy = embed_copy / embed_copy.norm(dim=1, keepdim=True)
+                token_embed = self.model.encoder.embed_tokens.weight[src_token]
+                token_embed = token_embed / token_embed.norm(dim=2, keepdim=True)
+                adv_sample_prob = token_embed @ torch.transpose(norm_embed_copy, 0, 1)
+                _, adv_sample_tokens = adv_sample_prob.topk(3, dim=2)
+                row, col = src_token.size(0), src_token.size(1)
+                temp = src_token.clone()
+                for i in range(row):
+                    for j in range(col-1):
+                        if pad_mask[i, j]:
+                            continue
+                        else:
+                            if random.random() < self.args.adv_percent * 0.01:
+                                temp[i, j] = adv_sample_tokens[i, j, 2]
+                    adv_token = utils.strip_pad(temp[i, :], self.task.src_dict.pad())
+                    token = utils.strip_pad(src_token[i, :], self.task.src_dict.pad())
+                    # print(self.task.src_dict.string(token, "sentencepiece"))
+                    target_token = utils.strip_pad(target_token[i, :], self.task.tgt_dict.pad())
+                    src_file = open(self.args.src_file, 'a')
+                    tgt_file = open(self.args.tgt_file, 'a')
+                    print(self.task.tgt_dict.string(target_token, "sentencepiece"), file=tgt_file)
+                    print(self.task.src_dict.string(adv_token, "sentencepiece"), file=src_file)
+                    src_file.close()
+                    tgt_file.close()
+                    raise Exception
+                # undo the gradient update
+
+                self.model.encoder.embed_tokens.weight = torch.nn.Parameter(embed_copy)
+                aux_model.decoder.embed_tokens.weight = torch.nn.Parameter(embed_copy)
 
             # update meters
             ntokens = logging_output.get("ntokens", 0)

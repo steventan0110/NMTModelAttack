@@ -26,10 +26,16 @@ def get_training_parser(default_task='translation'):
                        help='enable dual model training pretrain')
     parser.add_argument('--dual-training', action="store_true",
                         help='enable dual model training')
+    parser.add_argument('--on-the-fly', action="store_true",
+                        help='generate adversarial tokens on the fly during training')
     parser.add_argument('--auxillary-model-path', metavar='DIR', default='checkpoints',
                        help='path to load auxillary model')
     parser.add_argument('--auxillary-model-save-dir', metavar='DIR', default='checkpoints',
                         help='path to save auxillary model')
+    parser.add_argument('--adv-percent', type=int, default=15,
+                        help='controls the percent of src tokens being replaced by adversarial samples')
+    parser.add_argument('--src-file', metavar='DIR')
+    parser.add_argument('--tgt-file', metavar='DIR')
     add_dataset_args(parser, train=True)
     add_distributed_training_args(parser)
     add_model_args(parser)
