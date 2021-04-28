@@ -22,3 +22,4 @@ fairseq-preprocess \
       --testpref $DATA/test-baseline.bpe,$DATA/test-adv10.bpe,$DATA/test-adv15.bpe,$DATA/test-adv20.bpe,$DATA/test-adv30.bpe \
       --destdir $ROOT/data-bin/adv \
     --workers 8
+

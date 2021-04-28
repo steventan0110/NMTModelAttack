@@ -18,6 +18,7 @@ import torch
 from fairseq import checkpoint_utils, distributed_utils, models, optim, utils
 from fairseq.meters import AverageMeter, StopwatchMeter, TimeMeter
 from fairseq.optim import lr_scheduler
+from fairseq.criterions.label_smoothed_cross_entropy import LabelSmoothedCrossEntropyCriterion
 
 
 class Trainer(object):
@@ -139,8 +140,8 @@ class Trainer(object):
             else:
                 self._optimizer = optim.FP16Optimizer.build_optimizer(self.args, params)
         else:
-            if self.cuda and torch.cuda.get_device_capability(0)[0] >= 7:
-                print("| NOTICE: your device may support faster training with --fp16")
+            # if self.cuda and torch.cuda.get_device_capability(0)[0] >= 7:
+            #     print("| NOTICE: your device may support faster training with --fp16")
             self._optimizer = optim.build_optimizer(self.args, params)
 
 
@@ -352,10 +353,14 @@ class Trainer(object):
 
                     # with torch.autograd.set_detect_anomaly(True):
 
-                    if self.args.on_the_fly:
+                    if self.args.on_the_fly or self.args.on_the_fly_train:
+                        import copy
                         # print(self.model.encoder.embed_tokens.weight[0:5, 0:5])
                         embed_copy = self.model.encoder.embed_tokens.weight.detach().clone()
+                        # print('model weight before noise update:', self.model.encoder.embed_tokens.weight.sum())
                         reserved_src_tokens = sample['net_input']['src_tokens']
+                        reserved_sample = copy.deepcopy(sample)
+
                     loss, sample_size, logging_output = self.task.train_step(
                         sample, self.model, self.criterion, self.optimizer, ignore_grad,
                         comet_model=comet_model, aux_model=aux_model
@@ -431,7 +436,7 @@ class Trainer(object):
                 assert all(norm == prev_norms[0] for norm in prev_norms) or all(
                     math.isnan(norm) or math.isinf(norm) for norm in prev_norms
                 ), "Fatal error: gradients are inconsistent between workers"
-
+        # print(self.fast_stat_sync, self._sync_stats())
         self.meters["oom"].update(ooms, len(samples))
         if ooms == self.args.distributed_world_size * len(samples):
             print("| WARNING: OOM in all workers, skipping update")
@@ -466,6 +471,62 @@ class Trainer(object):
 
             # take an optimization step
             self.optimizer.step()
+            # generate adv tokens and train on NLL again
+            if self.args.on_the_fly_train:
+                import random
+                self.zero_grad()
+                random.seed(41)
+                src_token = reserved_src_tokens
+                target_token = sample['target']
+                pad_mask = src_token.eq(self.task.src_dict.pad())
+                norm_embed_copy = embed_copy / embed_copy.norm(dim=1, keepdim=True)
+                token_embed = self.model.encoder.embed_tokens.weight[src_token]
+                token_embed = token_embed / token_embed.norm(dim=2, keepdim=True)
+                adv_sample_prob = token_embed @ torch.transpose(norm_embed_copy, 0, 1)
+                _, adv_sample_tokens = adv_sample_prob.topk(3, dim=2)
+                row, col = src_token.size(0), src_token.size(1)
+                temp = src_token.clone()
+                for i in range(row):
+                    for j in range(col - 1):
+                        if pad_mask[i, j]:
+                            continue
+                        else:
+                            if random.random() < self.args.adv_percent * 0.01:
+                                # perform one of 2 actions: delete or replace with closet
+                                if random.random() < 0.8:
+                                    temp[i, j] = adv_sample_tokens[i, j, 2]
+                                else:
+                                    temp[i, j] = adv_sample_tokens[i, j, 0]
+                # undo the gradient update
+                # print(self.model.encoder.embed_tokens.weight.data[0:5, 0:5])
+                self.model.encoder.embed_tokens.weight.data.copy_(embed_copy)
+
+                # print(reserved_sample)
+                # print(temp)
+                # prepare new sample for nll loss:
+                reserved_sample['ntokens'] *= 2
+                reserved_sample['net_input']['src_tokens'] = torch.cat([reserved_sample['net_input']['src_tokens'], temp], dim=0)
+                reserved_sample['net_input']['src_lengths'] = reserved_sample['net_input']['src_lengths'].repeat(2)
+                reserved_sample['net_input']['prev_output_tokens'] = reserved_sample['net_input']['prev_output_tokens'].repeat(2, 1)
+                reserved_sample['target'] = reserved_sample['target'].repeat(2, 1)
+                # compute NLL loss following label-smoothed xent:
+
+                self.args.label_smoothing = 0.1 # manual append the required additional param, hacky
+                xent = LabelSmoothedCrossEntropyCriterion(self.args, self.task)
+                loss, sample_size, logging_output = xent(self.model, reserved_sample)
+                self.optimizer.backward(loss)
+                self.optimizer.multiply_grads(
+                    self.args.distributed_world_size / float(sample_size)
+                )
+                # clip grads
+                grad_norm = self.optimizer.clip_grad_norm(self.args.clip_norm)
+                self._prev_grad_norm = grad_norm
+                # take an optimization step
+                self.optimizer.step()
+                # print('model weight after noise update:', self.model.encoder.embed_tokens.weight.sum())
+                aux_model.decoder.embed_tokens.weight = self.model.encoder.embed_tokens.weight
+
+
             self.set_num_updates(self.get_num_updates() + 1)
 
             # task specific update per step
@@ -498,9 +559,10 @@ class Trainer(object):
                     tgt_file = open(self.args.tgt_file, 'a')
                     print(self.task.tgt_dict.string(target_token, "sentencepiece"), file=tgt_file)
                     print(self.task.src_dict.string(adv_token, "sentencepiece"), file=src_file)
+                    # print(self.task.tgt_dict.string(target_token, "sentencepiece"))
+                    # print(self.task.src_dict.string(adv_token, "sentencepiece"))
                     src_file.close()
                     tgt_file.close()
-                    raise Exception
                 # undo the gradient update
 
                 self.model.encoder.embed_tokens.weight = torch.nn.Parameter(embed_copy)

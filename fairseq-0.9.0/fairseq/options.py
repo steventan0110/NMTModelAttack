@@ -28,6 +28,8 @@ def get_training_parser(default_task='translation'):
                         help='enable dual model training')
     parser.add_argument('--on-the-fly', action="store_true",
                         help='generate adversarial tokens on the fly during training')
+    parser.add_argument('--on-the-fly-train', action="store_true",
+                        help='generate adversarial tokens on the fly during training and train on it')
     parser.add_argument('--auxillary-model-path', metavar='DIR', default='checkpoints',
                        help='path to load auxillary model')
     parser.add_argument('--auxillary-model-save-dir', metavar='DIR', default='checkpoints',
