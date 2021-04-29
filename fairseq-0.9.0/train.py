@@ -20,8 +20,8 @@ from fairseq.trainer import Trainer
 from fairseq.meters import AverageMeter, StopwatchMeter
 from fairseq.criterions import comet_score, dual_comet
 from fairseq.models import transformer
-
 from comet.models import download_model, load_checkpoint
+
 
 def main(args, init_distributed=False):
     utils.import_user_module(args)
@@ -71,14 +71,6 @@ def main(args, init_distributed=False):
         # pre-downloaded estimator from COMET
         comet_route = args.comet_route
         comet_model = load_checkpoint(comet_route)
-        # change parameters that requires gradient, update optimizer
-        for en_dec in model.children():
-            # en_dec is encoder or decoder, they share the embedding in my construction
-            # keep embedding requires_grad
-            for m in en_dec.children():
-                if not isinstance(m, torch.nn.Embedding):
-                    for p in m.parameters():
-                        p.requires_grad = False
     else:
         comet_model = None
 
@@ -101,6 +93,7 @@ def main(args, init_distributed=False):
 
     # Build trainer
     trainer = Trainer(args, task, model, criterion)
+
     print('| training on {} GPUs'.format(args.distributed_world_size))
     print('| max tokens per GPU = {} and max sentences per GPU = {}'.format(
         args.max_tokens,
