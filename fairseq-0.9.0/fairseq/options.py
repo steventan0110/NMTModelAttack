@@ -50,6 +50,10 @@ def get_generation_parser(interactive=False, default_task='translation'):
     parser = get_parser('Generation', default_task)
     parser.add_argument('--adv-gen', action='store_true',
                         help='generate adversarial samples from baseline and updateed embedding')
+    parser.add_argument('--comet-score', action='store_true',
+                        help='compute comet score for each sample')
+    parser.add_argument('--comet-route', metavar='DIR', default=None,
+                        help='path to the comet model saved on local')
     parser.add_argument('--adv-test', action='store_true',
                         help='test the checkpoint on perturbed sentences')
     parser.add_argument('--adv-model-path', metavar='DIR', default='checkpoints',

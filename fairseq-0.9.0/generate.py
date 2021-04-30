@@ -11,6 +11,7 @@ import torch
 
 from fairseq import bleu, checkpoint_utils, options, progress_bar, tasks, utils
 from fairseq.meters import StopwatchMeter, TimeMeter
+from comet.models import load_checkpoint
 
 
 def main(args):
@@ -99,6 +100,15 @@ def main(args):
     if args.adv_gen and not args.adv_test:
         src_file = open(args.src_file, 'w')
         tgt_file = open(args.tgt_file, 'w')
+
+    if args.comet_score:
+        # load comet model file to compute the score
+        comet_route = args.comet_route
+        comet_model = load_checkpoint(comet_route)
+        src_sent = []
+        tgt_sent = []
+        hypo_sent = []
+
     with progress_bar.build_progress_bar(args, itr) as t:
         wps_meter = TimeMeter()
         if args.adv_gen:
@@ -170,14 +180,6 @@ def main(args):
             gen_timer.start()
 
             hypos = task.inference_step(generator, models, sample, prefix_tokens)
-
-            # for item in hypos:
-            #     for h in item:
-            #         target_tokens = h['tokens']
-            #         target_str = tgt_dict.string(target_tokens, args.remove_bpe, escape_unk=True)
-            #         print(target_tokens)
-            #         print(target_str)
-
             num_generated_tokens = sum(len(h[0]['tokens']) for h in hypos)
             gen_timer.stop(num_generated_tokens)
 
@@ -218,6 +220,11 @@ def main(args):
                         tgt_dict=tgt_dict,
                         remove_bpe=args.remove_bpe,
                     )
+
+                    if args.comet_score:
+                        src_sent.append(src_str)
+                        tgt_sent.append(target_str)
+                        hypo_sent.append(hypo_str)
 
                     if not args.quiet:
                         print('H-{}\t{}\t{}'.format(sample_id, hypo['score'], hypo_str))
@@ -271,7 +278,18 @@ def main(args):
         num_sentences, gen_timer.n, gen_timer.sum, num_sentences / gen_timer.sum, 1. / gen_timer.avg))
     if has_target:
         print('| Generate {} with beam={}: {}'.format(args.gen_subset, args.beam, scorer.score()))
-
+    if args.comet_score:
+        data = {"src": src_sent, "mt": hypo_sent, "ref": tgt_sent}
+        data = [dict(zip(data, t)) for t in zip(*data.values())]
+        prediction = comet_model.predict(data, cuda=True, show_progress=True)
+        total_score = 0
+        size = 0
+        for idx, item in enumerate(prediction[0]):
+            score = item['predicted_score']
+            # print("Score for {}th sentence is {}".format(idx, score))
+            total_score += float(score)
+            size += 1
+        print('| Generate {} with beam={}, comet score: {}'.format(args.gen_subset, args.beam, total_score/size))
     return scorer
 
 
