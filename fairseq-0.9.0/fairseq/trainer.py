@@ -155,14 +155,16 @@ class Trainer(object):
             #     print("| NOTICE: your device may support faster training with --fp16")
             self._optimizer = optim.build_optimizer(self.args, params)
 
-
         if self.args.use_bmuf:
             self._optimizer = optim.FairseqBMUF(self.args, self._optimizer)
 
         # We should initialize the learning rate scheduler immediately after
         # building the optimizer, so that the initial learning rate is set.
-        
-        self._lr_scheduler = lr_scheduler.build_lr_scheduler(self.args, self.optimizer)
+        if self.args.on_the_fly_train:
+            self._lr_scheduler = lr_scheduler.build_lr_scheduler(self.args, self._optimizer2)
+        else:
+            self._lr_scheduler = lr_scheduler.build_lr_scheduler(self.args, self.optimizer)
+        # self._lr_scheduler = lr_scheduler.build_lr_scheduler(self.args, self.optimizer)
         self._lr_scheduler.step_update(0)
 
     def save_checkpoint(self, filename, extra_state):
@@ -520,7 +522,11 @@ class Trainer(object):
             self._prev_grad_norm = grad_norm
 
             # take an optimization step
+            # print(self.model.encoder.embed_tokens.weight[0:5, 0:5])
             self.optimizer.step()
+            # print(self.model.encoder.embed_tokens.weight[0:5, 0:5])
+
+
             # generate adv tokens and train on NLL again
             if self.args.on_the_fly_train:
                 import random
@@ -546,6 +552,8 @@ class Trainer(object):
                                     temp[i, j] = adv_sample_tokens[i, j, 2]
                                 else:
                                     temp[i, j] = adv_sample_tokens[i, j, 0]
+                    # adv_token = utils.strip_pad(temp[i, :], self.task.src_dict.pad())
+                    # print(self.task.src_dict.string(adv_token, "sentencepiece"))
                 # undo the gradient update
                 self.model.encoder.embed_tokens.weight.data.copy_(embed_copy)
 
@@ -559,25 +567,33 @@ class Trainer(object):
                 reserved_sample['target'] = reserved_sample['target'].repeat(2, 1)
                 # compute NLL loss following label-smoothed xent:
                 # update requires grad to true so that whole model is updated:
-              
+                for m in self.model.children():
+                    for p in m.parameters():
+                        p.requires_grad = True
 
                 self.args.label_smoothing = 0.1 # manual append the required additional param, hacky
                 xent = LabelSmoothedCrossEntropyCriterion(self.args, self.task)
                 loss, sample_size, logging_output = xent(self.model, reserved_sample)
-                self.optimizer.backward(loss)
-                self.optimizer.multiply_grads(
+                self._optimizer2.backward(loss)
+                self._optimizer2.multiply_grads(
                     self.args.distributed_world_size / float(sample_size)
                 )
                 # clip grads
-                grad_norm = self.optimizer.clip_grad_norm(self.args.clip_norm)
+                grad_norm = self._optimizer2.clip_grad_norm(self.args.clip_norm)
                 self._prev_grad_norm = grad_norm
                 # take an optimization step
-                # print(self.model.decoder.embed_tokens.weight[0:5, 0:5])
-                self.optimizer.step()
-                # print('model weight after noise update:', self.model.encoder.embed_tokens.weight.sum())
-                aux_model.decoder.embed_tokens.weight = self.model.encoder.embed_tokens.weight
+                #print(self.model.encoder.embed_tokens.weight[0:5, 0:5])
+                self._optimizer2.step()
+                #print(self.model.encoder.embed_tokens.weight[0:5, 0:5])
+
                 # update requires_grad back to False so that next loop can be executed correctly
-                
+                for en_dec in self.model.children():
+                    for m in en_dec.children():
+                        if isinstance(m, torch.nn.Embedding) and isinstance(en_dec, transformer.TransformerEncoder):
+                            continue
+                        for p in m.parameters():
+                            p.requires_grad = False
+                aux_model.decoder.embed_tokens.weight = self.model.encoder.embed_tokens.weight
 
             self.set_num_updates(self.get_num_updates() + 1)
 
@@ -756,8 +772,11 @@ class Trainer(object):
 
     def zero_grad(self):
         self.optimizer.zero_grad()
-        # if self._optimizer2 is not None:
-        #     self._optimizer2.zero_grad()
+        try:
+            self._optimizer2.zero_grad()
+        except Exception:
+            pass
+
 
     def clear_buffered_stats(self):
         self._all_reduce_list = [0.0] * 6
