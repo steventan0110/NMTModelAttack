@@ -718,8 +718,8 @@ class Trainer(object):
 
     def zero_grad(self):
         self.optimizer.zero_grad()
-        if self._optimizer2 is not None:
-            self._optimizer2.zero_grad()
+        #if self._optimizer2 is not None:
+        #   self._optimizer2.zero_grad()
 
     def clear_buffered_stats(self):
         self._all_reduce_list = [0.0] * 6
