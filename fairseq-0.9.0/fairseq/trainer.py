@@ -373,6 +373,44 @@ class Trainer(object):
                         reserved_src_tokens = sample['net_input']['src_tokens']
                         reserved_sample = copy.deepcopy(sample)
 
+                    if self.args.train_baseline:
+                        import random
+                        import copy
+                        # generate replacement and deletion samples in the same way I used for adversarial approach
+                        reserved_sample = copy.deepcopy(sample)
+                        embed_copy = self.model.encoder.embed_tokens.weight.detach().clone()
+                        model_embed = embed_copy / embed_copy.norm(dim=1, keepdim=True)
+                        src_tokens = sample['net_input']['src_tokens']
+                        token_embed = embed_copy[src_tokens]
+                        token_embed = token_embed / token_embed.norm(dim=2, keepdim=True)
+                        adv_sample_prob = token_embed @ torch.transpose(model_embed, 0, 1)
+                        _, adv_sample_tokens = adv_sample_prob.topk(3, dim=2)
+                        row, col = src_tokens.size(0), src_tokens.size(1)
+                        temp = src_tokens.clone()
+                        pad_mask = src_tokens.eq(self.task.src_dict.pad())
+                        for i in range(row):
+                            for j in range(col - 1):
+                                if pad_mask[i, j]:
+                                    continue
+                                else:
+                                    if random.random() < self.args.adv_percent * 0.01:
+                                        # perform one of 2 actions: delete or replace with closet
+                                        if random.random() < 0.8:
+                                            temp[i, j] = adv_sample_tokens[i, j, 2]
+                                        else:
+                                            temp[i, j] = adv_sample_tokens[i, j, 0]
+                            # adv_token = utils.strip_pad(temp[i, :], self.task.src_dict.pad())
+                            # print(self.task.src_dict.string(adv_token, "sentencepiece"))
+                        reserved_sample['ntokens'] *= 2
+                        reserved_sample['net_input']['src_tokens'] = torch.cat(
+                            [reserved_sample['net_input']['src_tokens'], temp], dim=0)
+                        reserved_sample['net_input']['src_lengths'] = reserved_sample['net_input'][
+                            'src_lengths'].repeat(2)
+                        reserved_sample['net_input']['prev_output_tokens'] = reserved_sample['net_input'][
+                            'prev_output_tokens'].repeat(2, 1)
+                        reserved_sample['target'] = reserved_sample['target'].repeat(2, 1)
+                        sample = reserved_sample
+
                     loss, sample_size, logging_output = self.task.train_step(
                         sample, self.model, self.criterion, self.optimizer, ignore_grad,
                         comet_model=comet_model, aux_model=aux_model
@@ -718,8 +756,8 @@ class Trainer(object):
 
     def zero_grad(self):
         self.optimizer.zero_grad()
-        if self._optimizer2 is not None:
-            self._optimizer2.zero_grad()
+        # if self._optimizer2 is not None:
+        #     self._optimizer2.zero_grad()
 
     def clear_buffered_stats(self):
         self._all_reduce_list = [0.0] * 6
