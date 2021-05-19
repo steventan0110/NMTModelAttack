@@ -80,7 +80,13 @@ def main():
             else:
                 stats["num_empty"] += 1
             return None
-
+        temp = zip(*inputs)
+        temp1 = list(inputs[0])
+        temp2 = list(inputs[1])
+        idx = 0
+        print(temp1[idx], temp2[idx+1])
+        print(len(temp1), len(temp2))
+        raise Exception
         for i, lines in enumerate(zip(*inputs), start=1):
             enc_lines = list(map(encode_line, lines))
             if not any(enc_line is None for enc_line in enc_lines):

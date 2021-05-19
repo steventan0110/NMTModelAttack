@@ -5,7 +5,8 @@
 
 import numpy as np
 import torch
-from fairseq.criterions import comet_score, dual_comet
+from fairseq.criterions import comet_score, dual_comet, dual_mrt
+from fairseq.criterions.label_smoothed_cross_entropy import LabelSmoothedCrossEntropyCriterion
 from fairseq.models import transformer
 from fairseq import tokenizer
 from fairseq.data import (
@@ -264,10 +265,14 @@ class FairseqTask(object):
         optimizer.backward(loss)
         return loss, sample_size, logging_output
 
-    def valid_step(self, sample, model, criterion):
+    def valid_step(self, sample, model, criterion, xent=None):
         model.eval()
         with torch.no_grad():
-            loss, sample_size, logging_output = criterion(model, sample)
+            # if using dual mrt to adv finetune, need to adjust the criterion
+            if isinstance(criterion, dual_comet.DualCOMET) or isinstance(criterion, dual_mrt.DualMRT):
+                loss, sample_size, logging_output = xent(model, sample)
+            else:
+                loss, sample_size, logging_output = criterion(model, sample)
         return loss, sample_size, logging_output
 
     def inference_step(self, generator, models, sample, prefix_tokens=None):

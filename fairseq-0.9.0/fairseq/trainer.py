@@ -552,7 +552,7 @@ class Trainer(object):
                                     temp[i, j] = adv_sample_tokens[i, j, 2]
                                 else:
                                     temp[i, j] = adv_sample_tokens[i, j, 0]
-                    # adv_token = utils.strip_pad(temp[i, :], self.task.src_dict.pad())
+                    adv_token = utils.strip_pad(temp[i, :], self.task.src_dict.pad())
                     # print(self.task.src_dict.string(adv_token, "sentencepiece"))
                 # undo the gradient update
                 self.model.encoder.embed_tokens.weight.data.copy_(embed_copy)
@@ -582,9 +582,9 @@ class Trainer(object):
                 grad_norm = self._optimizer2.clip_grad_norm(self.args.clip_norm)
                 self._prev_grad_norm = grad_norm
                 # take an optimization step
-                #print(self.model.encoder.embed_tokens.weight[0:5, 0:5])
+                # print(self.model.encoder.embed_tokens.weight[0:5, 0:5])
                 self._optimizer2.step()
-                #print(self.model.encoder.embed_tokens.weight[0:5, 0:5])
+                # print(self.model.encoder.embed_tokens.weight[0:5, 0:5])
 
                 # update requires_grad back to False so that next loop can be executed correctly
                 for en_dec in self.model.children():
@@ -705,8 +705,9 @@ class Trainer(object):
                 ignore_results = False
 
             try:
+                xent = LabelSmoothedCrossEntropyCriterion(self.args, self.task)
                 _loss, sample_size, logging_output = self.task.valid_step(
-                    sample, self.model, self.criterion
+                    sample, self.model, self.criterion, xent=xent
                 )
             except RuntimeError as e:
                 if "out of memory" in str(e):

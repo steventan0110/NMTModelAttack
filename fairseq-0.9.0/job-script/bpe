@@ -2,8 +2,8 @@
 source /home/steven/Documents/GITHUB/NMTModelAttack/ma/bin/activate
 
 ROOT=/home/steven/Documents/GITHUB/NMTModelAttack
-DATA=$ROOT/dataset/adv
-SRC=zh
+DATA=$ROOT/dataset/fr-en-raw
+SRC=fr
 TRT=en
 EPOCH=30
 
@@ -22,9 +22,9 @@ EPOCH=30
 #  --min-len 1 --max-len 1020
 
 python spm_encode.py \
-  --model $DATA/sentencepiece20k.model \
+  --model $DATA/fr-en40k.model \
   --output_format=piece \
-  --input $DATA/adv-e$EPOCH.$SRC $DATA/adv-e$EPOCH.$TRT \
-  --outputs $DATA/test-adv$EPOCH.bpe.$SRC $DATA/test-adv$EPOCH.bpe.$TRT \
+  --input $DATA/train.$SRC $DATA/train.$TRT \
+  --outputs $DATA/train.bpe.$SRC $DATA/train.bpe.$TRT \
   --min-len 1 --max-len 1020
 
