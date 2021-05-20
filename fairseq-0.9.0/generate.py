@@ -8,10 +8,12 @@ Translate pre-processed data with a trained model.
 """
 
 import torch
+import warnings
 from mosestokenizer import *
 from fairseq import bleu, checkpoint_utils, options, progress_bar, tasks, utils
 from fairseq.meters import StopwatchMeter, TimeMeter
 from comet.models import load_checkpoint
+warnings.filterwarnings('ignore')
 
 def main(args):
     assert args.path is not None, '--path required for generation!'
