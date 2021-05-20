@@ -64,6 +64,7 @@ def get_generation_parser(interactive=False, default_task='translation'):
                         help='controls the percent of src tokens being replaced by adversarial samples')
     parser.add_argument('--src-file', metavar='DIR')
     parser.add_argument('--tgt-file', metavar='DIR')
+    parser.add_argument('--detokenize-moses', action='store_true', help="detokenize using moses")
     add_dataset_args(parser, gen=True)
     add_generation_args(parser)
     if interactive:

@@ -8,11 +8,10 @@ Translate pre-processed data with a trained model.
 """
 
 import torch
-
+from mosestokenizer import *
 from fairseq import bleu, checkpoint_utils, options, progress_bar, tasks, utils
 from fairseq.meters import StopwatchMeter, TimeMeter
 from comet.models import load_checkpoint
-
 
 def main(args):
     assert args.path is not None, '--path required for generation!'
@@ -204,11 +203,20 @@ def main(args):
                     if has_target:
                         target_str = tgt_dict.string(target_tokens, args.remove_bpe, escape_unk=True)
 
+                if args.detokenize_moses:
+                    src_l = args.source_lang
+                    ref_l = args.target_lang
+                    with MosesDetokenizer(ref_l) as detokenize:
+                        target_str = detokenize(target_str.split(' '))
+                    with MosesDetokenizer(src_l) as detokenize:
+                        src_str = detokenize(src_str.split(' '))
+
                 if not args.quiet:
                     if src_dict is not None:
                         print('S-{}\t{}'.format(sample_id, src_str))
                     if has_target:
                         print('T-{}\t{}'.format(sample_id, target_str))
+
 
                 # Process top predictions
                 for j, hypo in enumerate(hypos[i][:args.nbest]):
@@ -220,6 +228,10 @@ def main(args):
                         tgt_dict=tgt_dict,
                         remove_bpe=args.remove_bpe,
                     )
+
+                    if args.detokenize_moses:
+                        with MosesDetokenizer(ref_l) as detokenize:
+                            hypo_str = detokenize(hypo_str.split(' '))
 
                     if args.comet_score:
                         src_sent.append(src_str)
