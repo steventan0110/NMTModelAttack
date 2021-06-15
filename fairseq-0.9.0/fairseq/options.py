@@ -36,6 +36,8 @@ def get_training_parser(default_task='translation'):
                        help='path to load auxillary model')
     parser.add_argument('--auxillary-model-save-dir', metavar='DIR', default='checkpoints',
                         help='path to save auxillary model')
+    parser.add_argument('--ratio', type=int, default=50,
+                        help="the ratio/split of chances to do subword deletion or replacement")
     parser.add_argument('--adv-percent', type=int, default=15,
                         help='controls the percent of src tokens being replaced by adversarial samples')
     parser.add_argument('--src-file', metavar='DIR')

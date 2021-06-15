@@ -155,7 +155,7 @@ def main(args):
                             #     print('different from itself')
                             if random.random() < prob:
                                 # perturbe the word
-                                temp[i, j] = adv_sample_tokens[i, j, 2]
+                                temp[i, j] = adv_sample_tokens[i, j, 0]
 
                 ########################
                 if args.adv_test:

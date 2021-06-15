@@ -1,28 +1,28 @@
 #!/bin/bash
 
-source /home/steven/Documents/GITHUB/NMTModelAttack/ma/bin/activate
-ROOT=/home/steven/Documents/GITHUB/NMTModelAttack
-MOSES=/home/steven/Documents/GITHUB/mosesdecoder
+source /home/steven/Code/GITHUB/NMTModelAttack/model-attack/bin/activate
+ROOT=/home/steven/Code/GITHUB/NMTModelAttack
+MOSES=/home/steven/Code/GITHUB/mosesdecoder
 DETOK=$MOSES/scripts/tokenizer/detokenizer.perl
 
 for percent in 10 15 20 25 30
 do
   OUT=$ROOT/output/adv/adv-mrt-c15-p$percent-unused.out
-  DATA=$ROOT/dataset/noise-data-de
+  DATA=$ROOT/dataset/noise-data-fr
   fairseq-generate \
-  /home/steven/Documents/GITHUB/NMTModelAttack/data-bin/de-en \
+  /home/steven/Code/GITHUB/NMTModelAttack/data-bin/fr-en \
   --task translation \
   --gen-subset test \
-  --path /home/steven/Documents/GITHUB/NMTModelAttack/checkpoints/dual-mrt-de/deen_checkpoint.pt \
+  --path /home/steven/Code/GITHUB/NMTModelAttack/checkpoints/dual-mrt-fr/fren_checkpoint.pt \
   --batch-size 64 \
   --adv-gen \
-  --adv-model-path  /home/steven/Documents/GITHUB/NMTModelAttack/checkpoints/dual-mrt-de/deen_checkpoint.pt \
+  --adv-model-path  /home/steven/Code/GITHUB/NMTModelAttack/checkpoints/dual-mrt-fr/fren_checkpoint.pt \
   --adv-percent $percent \
   --lenpen 1.0 \
   --remove-bpe \
   --sacrebleu \
   --src-file $DATA/src_$percent --tgt-file $DATA/tgt_$percent \
-  -s de \
+  -s fr \
   -t en \
   --beam 5 > $OUT
 done
@@ -30,7 +30,7 @@ done
 # detokenize the prediction with MOSES
 for percent in 10 15 20 25 30
 do
-  $DETOK -l de < $DATA/src_$percent > $DATA/rd-$percent.de
+  $DETOK -l fr < $DATA/src_$percent > $DATA/rd-$percent.fr
   $DETOK -l en < $DATA/tgt_$percent > $DATA/rd-$percent.en
 done
 

@@ -397,7 +397,7 @@ class Trainer(object):
                                 else:
                                     if random.random() < self.args.adv_percent * 0.01:
                                         # perform one of 2 actions: delete or replace with closet
-                                        if random.random() < 0.8:
+                                        if random.random() < self.args.ratio * 0.01:
                                             temp[i, j] = adv_sample_tokens[i, j, 2]
                                         else:
                                             temp[i, j] = adv_sample_tokens[i, j, 0]
@@ -548,10 +548,11 @@ class Trainer(object):
                         else:
                             if random.random() < self.args.adv_percent * 0.01:
                                 # perform one of 2 actions: delete or replace with closet
-                                if random.random() < 0.8:
+                                if random.random() < self.args.ratio * 0.01:
                                     temp[i, j] = adv_sample_tokens[i, j, 2]
                                 else:
                                     temp[i, j] = adv_sample_tokens[i, j, 0]
+
                     adv_token = utils.strip_pad(temp[i, :], self.task.src_dict.pad())
                     # print(self.task.src_dict.string(adv_token, "sentencepiece"))
                 # undo the gradient update
