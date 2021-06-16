@@ -40,6 +40,9 @@ def get_training_parser(default_task='translation'):
                         help="the ratio/split of chances to do subword deletion or replacement")
     parser.add_argument('--adv-percent', type=int, default=15,
                         help='controls the percent of src tokens being replaced by adversarial samples')
+    parser.add_argument('--beta', type=float, default=0.8,
+                        help='the weight given to attacking risk, (1-beta) is the weight for source-side'
+                             'similarity risk')
     parser.add_argument('--src-file', metavar='DIR')
     parser.add_argument('--tgt-file', metavar='DIR')
     add_dataset_args(parser, train=True)
