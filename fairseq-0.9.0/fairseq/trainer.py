@@ -378,6 +378,7 @@ class Trainer(object):
                     if self.args.train_baseline:
                         import random
                         import copy
+                        random.seed(41)
                         # generate replacement and deletion samples in the same way I used for adversarial approach
                         reserved_sample = copy.deepcopy(sample)
                         embed_copy = self.model.encoder.embed_tokens.weight.detach().clone()
@@ -530,6 +531,7 @@ class Trainer(object):
             # generate adv tokens and train on NLL again
             if self.args.on_the_fly_train:
                 import random
+                random.seed(41)
                 self.zero_grad()
                 src_token = reserved_src_tokens
                 target_token = sample['target']
