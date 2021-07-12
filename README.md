@@ -6,7 +6,7 @@
 
     |Source|Target|Training Data|Valid1|Valid2|Test data
     |--|--|--|--|--|--|
-    |ZH|EN|WMT20 without UN corpus|WMT2017 newstest|WMT2018 newstest| WMT2020 newstest|
+    |ZH|EN|WMT17 without UN corpus|WMT2017 newstest|WMT2018 newstest| WMT2020 newstest|
     |DE|EN|WMT17|WMT2017 newstest|WMT2018 newstest|WMT2014 newstest|
     |FR|EN|WMT14 without UN corpus|WMT2015 newsdiscussdev|WMT2015 newsdiscusstest|WMT2014 newstest|
     
