@@ -87,7 +87,7 @@ class DualNLL(FairseqCriterion):
         sample_loss, _ = self.compute_loss(model, net_output, sample, reduce=reduce)
         aux_loss, _ = self.compute_loss(aux_model, aux_output, aux_sample, reduce=reduce)
         sample_size = sample['target'].size(0) if self.args.sentence_avg else sample['ntokens']
-        beta = 0.8
+        beta = self.args.beta
         loss = (1-beta) * aux_loss - beta * sample_loss
         logging_output = {
             'loss': utils.item(loss.data) if reduce else loss.data,
