@@ -61,7 +61,7 @@
 
 - Adversarial Attack:
     ```bash
-        fairseq-train $DATADIR \
+    fairseq-train $DATADIR \
         --source-lang $src \
         --target-lang $tgt \
         --save-dir $SAVEDIR \
