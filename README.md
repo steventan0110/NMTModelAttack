@@ -1,6 +1,5 @@
 ## Doubly Trained Neural Machine Translation System for Adversarial Attack and Data Augmentation
 
-
 ### Languages Experimented:
 - Data Overview:
 
@@ -141,3 +140,15 @@
         --beam 5
     ```
     Here `--detokenize-moses` would call detokenizer during the generation step and detokenize predictions before evaluating it. It would slow the generation step. Another way to manually do this is to retrieve prediction and target sentences from output file of fairseq and manually apply detokenizer from [detokenizer.perl](https://github.com/moses-smt/mosesdecoder/blob/master/scripts/tokenizer/mosestokenizer/detokenizer.py).
+    
+### BibTex
+```
+@misc{tan2021doublytrained,
+      title={Doubly-Trained Adversarial Data Augmentation for Neural Machine Translation}, 
+      author={Weiting Tan and Shuoyang Ding and Huda Khayrallah and Philipp Koehn},
+      year={2021},
+      eprint={2110.05691},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL}
+}
+```
