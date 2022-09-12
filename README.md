@@ -143,12 +143,19 @@
     
 ### BibTex
 ```
-@misc{tan2021doublytrained,
-      title={Doubly-Trained Adversarial Data Augmentation for Neural Machine Translation}, 
-      author={Weiting Tan and Shuoyang Ding and Huda Khayrallah and Philipp Koehn},
-      year={2021},
-      eprint={2110.05691},
-      archivePrefix={arXiv},
-      primaryClass={cs.CL}
+@inproceedings{tan-etal-2022-doubly,
+    title = "Doubly-Trained Adversarial Data Augmentation for Neural Machine Translation",
+    author = "Tan, Weiting  and
+      Ding, Shuoyang  and
+      Khayrallah, Huda  and
+      Koehn, Philipp",
+    booktitle = "Proceedings of the 15th biennial conference of the Association for Machine Translation in the Americas (Volume 1: Research Track)",
+    month = sep,
+    year = "2022",
+    address = "Orlando, USA",
+    publisher = "Association for Machine Translation in the Americas",
+    url = "https://aclanthology.org/2022.amta-research.12",
+    pages = "157--174",
+    abstract = "Neural Machine Translation (NMT) models are known to suffer from noisy inputs. To make models robust, we generate adversarial augmentation samples that attack the model and preserve the source-side meaning at the same time. To generate such samples, we propose a doubly-trained architecture that pairs two NMT models of opposite translation directions with a joint loss function, which combines the target-side attack and the source-side semantic similarity constraint. The results from our experiments across three different language pairs and two evaluation metrics show that these adversarial samples improve model robustness.",
 }
 ```
